@@ -1,0 +1,14 @@
+{
+  "name": "surge_3x",
+  "description": "Arrival rate triples after 20 min (e.g. an upstream batch release), stress-testing how the line and the twin behave under a surge.",
+  "duration_s": 7200,
+  "seed": 3,
+  "events": [
+    {
+      "at_s": 1200,
+      "type": "surge",
+      "params": { "factor": 3.0 },
+      "note": "3x normal arrival volume"
+    }
+  ]
+}
