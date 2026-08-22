@@ -1,0 +1,11 @@
+# Blindsight prototype — runtime dependencies
+# (planned; pin versions during M0 implementation)
+numpy>=2.0
+scipy>=1.13          # least-squares / regularized solvers for tomography
+simpy>=4.1           # discrete-event ground-truth simulator (optional; custom DES fallback)
+fastapi>=0.115       # API service
+uvicorn[standard]>=0.30
+pydantic>=2.7        # API schemas
+
+# Dev / test
+pytest>=8.0
