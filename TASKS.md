@@ -1,7 +1,16 @@
 # Taskboard
 
-Mirror of the GitHub **Milestones + Issues** board. Milestones = build phases (see
-[`PLAN.md`](PLAN.md) §5). Statuses: ⬜ todo · 🟨 in progress · ✅ done.
+**GitHub Issues + Milestones is the source of truth** (39 issues across 9 milestones) —
+built from the reusable convention in `~/software-learning/taskboard-template/`. Issues carry
+`area:* · type:* · priority:* · size:*` labels; deep-tech tasks reference
+[`docs/METHODS.md`](docs/METHODS.md). This file is a human-readable summary; milestones = build
+phases (see [`PLAN.md`](PLAN.md) §5, §9–10). Statuses: ⬜ todo · 🟨 in progress · ✅ done.
+
+> Deep-tech issues added on top of the summary below: Bayesian hierarchical tomography,
+> service/wait separation, variant-aware design matrix, online particle/Kalman filter,
+> uncertainty-propagating forecast, SPC+change-point, causal attribution, OCBA/KN
+> simulation-optimization, CRPS/calibration backtest, submodular value-of-information,
+> shared `api/schemas.py` seam, mock server, CI. See the [Issues](../../issues) for detail.
 
 ## M0 · Foundations
 - ✅ Repo, planning docs, directory skeleton
