@@ -1,0 +1,15 @@
+{
+  "name": "torque_drift_s8",
+  "description": "A torque tool at manual Station 8 drifts 4% out of spec after 40 min. Units processed while drifted are defective; the defect is only caught at end-of-line audit unless traced. Slight cycle-time increase accompanies the drift.",
+  "duration_s": 7200,
+  "seed": 8,
+  "events": [
+    {
+      "at_s": 2400,
+      "type": "drift",
+      "station_id": 8,
+      "params": { "delta_s": 3.0, "defect_rate": 1.0 },
+      "note": "torque 4% out of spec — every unit processed now carries the fault"
+    }
+  ]
+}

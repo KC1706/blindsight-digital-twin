@@ -1,0 +1,7 @@
+{
+  "name": "baseline",
+  "description": "Nominal shift, no injected faults. Used for calibration.",
+  "duration_s": 7200,
+  "seed": 7,
+  "events": []
+}

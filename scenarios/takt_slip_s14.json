@@ -1,0 +1,15 @@
+{
+  "name": "takt_slip_s14",
+  "description": "Manual (dark) Station 14 drifts ~12s over takt after 30 min, becoming the binding constraint. No sensor on S14 — Blindsight must infer it from neighbours.",
+  "duration_s": 7200,
+  "seed": 14,
+  "events": [
+    {
+      "at_s": 1800,
+      "type": "cycle_shift",
+      "station_id": 14,
+      "params": { "delta_s": 12.0 },
+      "note": "operator fatigue / method drift pushes S14 over takt"
+    }
+  ]
+}
