@@ -125,7 +125,58 @@ Each milestone is tracked as a GitHub Milestone; individual tasks are Issues lin
 | Scalability & ROI | §2.7 VoI, M8 business case |
 | Predictive claims validated / false alarms erode trust | §2.7 backtest, calibration, false-alarm rate |
 
-## 7. Out of scope for the PoC
+## 7. Success metrics / acceptance criteria
+
+The prototype must hit measurable bars (reported in `docs/VALIDATION.md`), not just "it runs":
+
+| Capability | Target (illustrative, PoC) |
+|---|---|
+| Dark-station cycle-time estimate | MAPE ≤ ~15% vs ground truth; error-bar coverage ≈ nominal (80% band contains truth ~80%) |
+| Bottleneck call | precision/recall ≥ ~0.8 on injected events; median lead time ≥ ~60 min |
+| False-alarm rate | reported and tuned below a stated threshold (the trust metric) |
+| Forecast calibration | reliability diagram near-diagonal; CRPS beats a persistence baseline |
+| Recommendation | expected units-recovered with a confidence it beats "do nothing" |
+| Runtime | 500-replication / 2-h forecast in a few seconds on a laptop |
+
+Every headline number is reported **split by instrumented vs dark stations** — the honest test.
+
+## 8. Deep-tech methods
+
+The differentiating techniques are specified in [`docs/METHODS.md`](docs/METHODS.md):
+active-period bottleneck detection, a **Bayesian hierarchical tomographic inverse problem** for
+dark-station service times, an **online particle/Kalman filter** for live state, SPC + causal
+attribution for multi-causal root cause, **uncertainty-propagating Monte-Carlo forecasting**,
+**simulation-optimization (OCBA/KN)** for prescription, distributional backtesting (CRPS,
+calibration), and **submodular value-of-information** sensor placement.
+
+## 9. Two-person work split (parallel tracks)
+
+Plenty of runway → build for depth, run two tracks in parallel with a thin API contract as the
+seam (agree `api/schemas.py` early so both sides mock against it).
+
+- **Track A — "Engine & Science" (Dev 1):** M1 ground-truth sim + observability, M2 virtual
+  sensing (tomography + filter), M3 forecast, M4 prescription + defect trace, M5 validation.
+  Owns `engine/`, `docs/METHODS.md`, `docs/VALIDATION.md`.
+- **Track B — "Product & Story" (Dev 2):** M0 scaffolding, M6 API, M7 dashboard (3 views),
+  M8 demo + business proposal. Owns `api/`, `web/`, `docs/BUSINESS_PROPOSAL.md`,
+  `docs/DEMO_SCRIPT.md`.
+- **Shared seam:** `api/schemas.py` (data contract) agreed in M0 so Track B builds the UI
+  against fixtures while Track A implements the real engine behind the same shapes.
+
+## 10. Dependencies & critical path
+
+```
+M0 ─► M1 ─► M2 ─► M3 ─► M4 ─┐
+                 └► M5 ◄─────┤   (M5 validates M2/M3/M4)
+M0 ─► (schemas) ─► M6 ─► M7  │
+                            └► M8 (needs a runnable M3+M7)
+```
+
+Critical path to a demo: **M0 → M1 → M2 → M3 → M6 → M7 → M8**. M4/M5 deepen the story and are
+p1 (not p0) — they make the pitch *win*, not merely *run*. Track B's M6/M7 proceed against
+fixtures as soon as schemas exist, so the UI is never blocked on the science.
+
+## 11. Out of scope for the PoC
 
 Real PLC/OT integration, real plant data, production hardening, auth, 3D visualization.
 Stated explicitly per the brief ("working proof-of-concept on illustrative or sample data").
