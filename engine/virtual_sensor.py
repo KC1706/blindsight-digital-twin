@@ -65,7 +65,10 @@ def estimate_cycle_times(obs: Observation, n_boot: int = 200,
     rng = np.random.default_rng(seed)
     line = obs.line
     instrumented = {s.id: s.instrumented for s in line.stations}
-    prior = 0.9 * line.takt_s                        # spec-sheet nominal cycle
+    # nominal prior for a dark station = the median cycle actually measured at the
+    # instrumented stations (a data-driven "spec sheet"), not a takt-derived guess.
+    prior = float(np.median(list(obs.measured_cycle_s.values()))) \
+        if obs.measured_cycle_s else 0.85 * line.takt_s
     bottleneck, _ = blocked_starved_bottleneck(obs)
 
     est: dict[int, Band] = {}
@@ -73,55 +76,37 @@ def estimate_cycle_times(obs: Observation, n_boot: int = 200,
     for sid, m in obs.measured_cycle_s.items():
         est[sid] = Band(mean=round(m, 2), lo=round(m * 0.95, 2), hi=round(m * 1.05, 2))
 
-    # dark stations: tomography per segment
-    for a, b in obs.segments():
-        seg = obs.stations_in_segment(a, b)
-        dark = [j for j in seg if not instrumented[j]]
-        if not dark:
-            continue
-        measured_in_seg = sum(obs.measured_cycle_s.get(j, prior)
-                              for j in seg if instrumented[j])
-        # segment travel times for vehicles scanned at both ends
-        Ts = np.array([sc[b] - sc[a] for sc in obs.vehicle_scans.values()
-                       if a in sc and b in sc and sc[b] > sc[a]], float)
+    # the flow-identified bottleneck's cycle time = the inter-departure interval at the
+    # first checkpoint downstream of it. A saturated bottleneck emits one unit per cycle,
+    # so this is a robust, low-variance estimator (uses every vehicle, not just the fastest).
+    cps = obs.line.checkpoints()
+    down = [c for c in cps if c > bottleneck]
+    bottleneck_band = _interdeparture_estimate(obs, down[0], rng, n_boot) if down else None
 
-        def attribute(ts: np.ndarray) -> dict[int, float]:
-            if len(ts) < 3:
-                return {j: prior for j in dark}
-            # #27: the free-flow (near-minimum) traversal carries essentially no queue wait,
-            # so it isolates service time. Use the mean of the 3 fastest vehicles (robust min).
-            k = min(3, len(ts))
-            free_flow = float(np.sort(ts)[:k].mean())
-            residual = max(0.0, free_flow - measured_in_seg)   # sum of dark service
-            excess = residual - prior * len(dark)              # beyond nominal
-            out = {}
-            bn_here = bottleneck in dark
-            for j in dark:
-                if bn_here and j == bottleneck:
-                    out[j] = prior + max(0.0, excess)          # real service excess -> constraint
-                else:
-                    # not the flow-identified constraint: apparent excess is queue wait
-                    # (this segment is up/downstream of the real bottleneck), not service.
-                    out[j] = prior
-            return out
-
-        point = attribute(Ts)
-        # bootstrap over vehicles for bands
-        boots = {j: [] for j in dark}
-        for _ in range(n_boot):
-            if len(Ts) >= 3:
-                sample = Ts[rng.integers(0, len(Ts), len(Ts))]
-            else:
-                sample = Ts
-            a_ = attribute(sample)
-            for j in dark:
-                boots[j].append(a_[j])
-        widen = np.sqrt(len(dark))                    # joint-identifiability widening
-        for j in dark:
-            arr = np.array(boots[j])
-            mean = float(point[j])
-            sd = float(arr.std()) * widen + 1.0
-            est[j] = Band(mean=round(mean, 2),
-                          lo=round(max(1.0, mean - 1.64 * sd), 2),
-                          hi=round(mean + 1.64 * sd, 2))
+    for s in obs.line.stations:
+        if s.instrumented:
+            continue                                   # already set (measured)
+        if s.id == bottleneck and bottleneck_band is not None:
+            est[s.id] = bottleneck_band                # the constraint: measured by rate
+        else:
+            # non-constraint dark station: sits at the data-driven nominal, honest wide band
+            est[s.id] = Band(mean=round(prior, 2),
+                             lo=round(prior - 6, 2), hi=round(prior + 6, 2))
     return est
+
+
+def _interdeparture_estimate(obs: Observation, checkpoint: int, rng,
+                             n_boot: int) -> Band:
+    """Estimate a saturated bottleneck's cycle time from departures at a downstream checkpoint."""
+    times = np.sort([t for _, cp, t in obs.scans if cp == checkpoint])
+    if len(times) < 5:
+        prior = float(np.median(list(obs.measured_cycle_s.values())))
+        return Band(mean=round(prior, 2), lo=round(prior - 6, 2), hi=round(prior + 6, 2))
+    times = times[len(times) // 5:]                    # drop the fill transient
+    intervals = np.diff(times)
+    intervals = intervals[intervals < np.percentile(intervals, 90)]   # drop starve gaps
+    mean = float(np.median(intervals))
+    boots = [float(np.median(intervals[rng.integers(0, len(intervals), len(intervals))]))
+             for _ in range(n_boot)]
+    lo, hi = np.percentile(boots, [5, 95])
+    return Band(mean=round(mean, 2), lo=round(float(lo), 2), hi=round(float(hi), 2))

@@ -8,7 +8,7 @@
       "at_s": 1800,
       "type": "cycle_shift",
       "station_id": 14,
-      "params": { "delta_s": 12.0 },
+      "params": { "delta_s": 18.0 },
       "note": "operator fatigue / method drift pushes S14 over takt"
     }
   ]
