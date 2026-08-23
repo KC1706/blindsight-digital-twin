@@ -88,17 +88,21 @@ def estimate_cycle_times(obs: Observation, n_boot: int = 200,
         def attribute(ts: np.ndarray) -> dict[int, float]:
             if len(ts) < 3:
                 return {j: prior for j in dark}
-            free_flow = float(np.percentile(ts, 3))   # #27: near-min = free-flow, no queue wait
+            # #27: the free-flow (near-minimum) traversal carries essentially no queue wait,
+            # so it isolates service time. Use the mean of the 3 fastest vehicles (robust min).
+            k = min(3, len(ts))
+            free_flow = float(np.sort(ts)[:k].mean())
             residual = max(0.0, free_flow - measured_in_seg)   # sum of dark service
             excess = residual - prior * len(dark)              # beyond nominal
             out = {}
+            bn_here = bottleneck in dark
             for j in dark:
-                if bottleneck in dark and j == bottleneck:
-                    out[j] = prior + max(0.0, excess)          # excess -> the constraint
-                elif bottleneck in dark:
-                    out[j] = prior                             # others at nominal
+                if bn_here and j == bottleneck:
+                    out[j] = prior + max(0.0, excess)          # real service excess -> constraint
                 else:
-                    out[j] = prior + max(0.0, excess) / len(dark)   # can't localize: split
+                    # not the flow-identified constraint: apparent excess is queue wait
+                    # (this segment is up/downstream of the real bottleneck), not service.
+                    out[j] = prior
             return out
 
         point = attribute(Ts)
