@@ -51,7 +51,7 @@ def build_default_line() -> LineConfig:
     # feed faster than the slowest station so the line saturates and a real
     # bottleneck forms (blocking upstream, starvation downstream) — the signal
     # virtual sensing depends on.
-    return LineConfig(stations=stations, takt_s=55.0, arrival_interval_s=40.0)
+    return LineConfig(stations=stations, takt_s=60.0, arrival_interval_s=40.0)
 
 
 if __name__ == "__main__":  # quick manual check

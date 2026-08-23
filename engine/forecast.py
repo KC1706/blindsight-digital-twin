@@ -27,26 +27,32 @@ def _sample_means(estimates, rng) -> dict[int, float]:
     return out
 
 
+def _candidates(estimates, line, k: int = 5) -> list[int]:
+    """Only the slowest few stations can realistically be the constraint. Restricting the
+    argmax to these avoids the max-of-40-noisy-samples inflation that would fabricate loss."""
+    ids = [s.id for s in line.stations]
+    return sorted(ids, key=lambda i: -estimates[i].mean)[:k]
+
+
 def forecast(estimates: dict[int, Band], line: LineConfig,
              horizon_s: float = 7200.0, M: int = 500, seed: int = 0) -> ForecastResult:
     rng = np.random.default_rng(seed)
-    ids = [s.id for s in line.stations]
     takt = line.takt_s
+    cand = _candidates(estimates, line)
 
-    binding = np.zeros(len(ids))
+    binding = {i: 0 for i in cand}
     throughput = np.empty(M)
     bn_means = np.empty(M)
     for m in range(M):
         means = _sample_means(estimates, rng)
-        arr = np.array([means[i] for i in ids])
-        j = int(arr.argmax())                     # the bottleneck sets the line rate
+        j = max(cand, key=lambda i: means[i])     # the bottleneck sets the line rate
         binding[j] += 1
-        bn_mean = float(arr[j])
+        bn_mean = float(means[j])
         bn_means[m] = bn_mean
         throughput[m] = horizon_s / bn_mean       # steady-state bottleneck-rate model
 
-    p_binding = binding / M
-    constraint = int(p_binding.argmax())
+    p_binding = {i: c / M for i, c in binding.items()}
+    constraint = max(p_binding, key=p_binding.get)
     ideal = horizon_s / takt
     units_lost = np.clip(ideal - throughput, 0, None)
 
@@ -64,7 +70,7 @@ def forecast(estimates: dict[int, Band], line: LineConfig,
 
     return ForecastResult(
         horizon_s=horizon_s,
-        constraint_station_id=constraint,
+        constraint_station_id=int(constraint),
         p_binding=round(float(p_binding[constraint]), 3),
         eta_s=band(etas),
         units_lost=band(units_lost),
@@ -75,10 +81,10 @@ def p_binding_by_station(estimates: dict[int, Band], line: LineConfig,
                          M: int = 500, seed: int = 0) -> dict[int, float]:
     """Full distribution over which station is the constraint (for the dashboard)."""
     rng = np.random.default_rng(seed)
-    ids = [s.id for s in line.stations]
-    counts = {i: 0 for i in ids}
+    cand = _candidates(estimates, line)
+    counts = {i: 0 for i in cand}
     for _ in range(M):
         means = _sample_means(estimates, rng)
-        j = ids[int(np.argmax([means[i] for i in ids]))]
+        j = max(cand, key=lambda i: means[i])
         counts[j] += 1
     return {i: round(c / M, 3) for i, c in counts.items()}
