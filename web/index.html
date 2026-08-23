@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Blindsight — Digital Twin</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --line:#30363d;
+    --text:#e6edf3; --muted:#8b949e; --accent:#a371f7; --accent2:#7ee787;
+    --work:#2ea043; --block:#d29922; --starve:#f85149; --dark:#6e7681;
+    --chip:#21262d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  header{display:flex;align-items:center;gap:16px;padding:14px 22px;
+         border-bottom:1px solid var(--line);background:var(--panel)}
+  header h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.2px}
+  header h1 .b{color:var(--accent)}
+  .tag{color:var(--muted);font-size:12px}
+  .spacer{flex:1}
+  select{background:var(--chip);color:var(--text);border:1px solid var(--line);
+         border-radius:6px;padding:6px 10px;font-size:13px}
+  .tabs{display:flex;gap:6px;padding:12px 22px 0}
+  .tab{padding:8px 16px;border:1px solid var(--line);border-bottom:none;
+       border-radius:8px 8px 0 0;background:var(--panel);color:var(--muted);cursor:pointer}
+  .tab.active{background:var(--panel2);color:var(--text);font-weight:600}
+  main{padding:18px 22px 40px}
+  .view{display:none} .view.active{display:block}
+  .grid{display:grid;gap:16px}
+  .cols-3{grid-template-columns:repeat(3,1fr)}
+  .cols-2{grid-template-columns:2fr 1fr}
+  @media(max-width:900px){.cols-3,.cols-2{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .card h3{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+  .big{font-size:34px;font-weight:800;line-height:1.1}
+  .big.warn{color:var(--block)} .big.bad{color:var(--starve)} .big.good{color:var(--accent2)}
+  .sub{color:var(--muted);font-size:12px;margin-top:4px}
+  .banner{border-radius:12px;padding:14px 18px;margin-bottom:16px;border:1px solid var(--line)}
+  .banner.bn{background:linear-gradient(90deg,#2d1b3d,#1c2330);border-color:var(--accent)}
+  .banner b{color:var(--accent2)}
+  /* line map */
+  #map{width:100%;height:150px;background:var(--panel2);border:1px solid var(--line);border-radius:12px}
+  .legend{display:flex;gap:16px;margin-top:8px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  /* recommendation */
+  .rec{border:1px solid var(--accent);background:var(--panel2);border-radius:10px;padding:14px}
+  .rec .act{font-size:16px;font-weight:700;margin:6px 0}
+  .pill{display:inline-block;background:var(--chip);border:1px solid var(--line);border-radius:999px;
+        padding:2px 10px;font-size:12px;color:var(--muted);margin-right:6px}
+  button.accept{background:var(--work);color:#fff;border:none;border-radius:7px;padding:8px 14px;
+        cursor:pointer;font-weight:600;margin-top:10px;margin-right:8px}
+  button.override{background:transparent;color:var(--muted);border:1px solid var(--line);
+        border-radius:7px;padding:8px 14px;cursor:pointer;margin-top:10px}
+  .log{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted);
+       background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px;margin-top:10px;
+       max-height:90px;overflow:auto;white-space:pre-wrap}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
+  .barwrap{position:relative;background:var(--panel2);border-radius:4px;height:16px;min-width:120px}
+  .bar{position:absolute;height:100%;border-radius:4px;background:var(--accent)}
+  .band{position:absolute;height:100%;background:rgba(163,113,247,.25);border-radius:4px}
+  .darkrow{color:var(--block)}
+  .metric{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)}
+  .metric b{font-size:16px}
+  .voi li{margin:4px 0}
+  .footnote{color:var(--muted);font-size:11px;margin-top:8px}
+  #err{color:var(--starve);padding:10px 22px}
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="b">Blindsight</span> · digital twin</h1>
+  <span class="tag">the line is the sensor</span>
+  <div class="spacer"></div>
+  <label class="tag">scenario&nbsp;</label>
+  <select id="scenario"></select>
+</header>
+<div class="tabs">
+  <div class="tab active" data-v="floor">🏭 Floor supervisor</div>
+  <div class="tab" data-v="plant">📈 Plant manager</div>
+  <div class="tab" data-v="exec">💼 Leadership</div>
+</div>
+<div id="err"></div>
+<main>
+  <!-- FLOOR -->
+  <section class="view active" id="floor">
+    <div id="bn-banner" class="banner bn">loading…</div>
+    <svg id="map" viewBox="0 0 1000 150" preserveAspectRatio="none"></svg>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--work)"></span>working</span>
+      <span><span class="dot" style="background:var(--block)"></span>blocked (upstream)</span>
+      <span><span class="dot" style="background:var(--starve)"></span>starved (downstream)</span>
+      <span><span class="dot" style="background:var(--dark);border:2px solid #fff"></span>dark — no sensor</span>
+      <span><span class="dot" style="background:var(--accent)"></span>vehicle (live)</span>
+      <span id="clock" style="margin-left:auto"></span>
+    </div>
+    <div class="grid cols-2" style="margin-top:16px">
+      <div class="card" id="rec-card"><h3>Recommended action</h3><div id="rec"></div></div>
+      <div class="card" id="defect-card"><h3>Defect containment</h3><div id="defect"></div></div>
+    </div>
+  </section>
+  <!-- PLANT -->
+  <section class="view" id="plant">
+    <div class="grid cols-3">
+      <div class="card"><h3>Binding constraint (2h forecast)</h3>
+        <div class="big warn" id="f-constraint">—</div><div class="sub" id="f-pbind"></div></div>
+      <div class="card"><h3>Units lost over 2h</h3>
+        <div class="big bad" id="f-lost">—</div><div class="sub" id="f-lostband"></div></div>
+      <div class="card"><h3>ETA to first unit lost</h3>
+        <div class="big" id="f-eta">—</div><div class="sub" id="f-etaband"></div></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h3>Per-station cycle time — estimated with error bars (dark = no sensor)</h3>
+      <table><thead><tr><th>Station</th><th>Zone</th><th>Sensor</th>
+        <th>Cycle time (s) — estimate & band</th><th>P(constraint)</th></tr></thead>
+        <tbody id="cyc-body"></tbody></table>
+      <div class="footnote">Bars show the estimated cycle time; the shaded band is the 80% uncertainty
+        interval. Dark (manual) stations are reconstructed from flow + scans, never measured directly.</div>
+    </div>
+  </section>
+  <!-- EXEC -->
+  <section class="view" id="exec">
+    <div class="grid cols-3">
+      <div class="card"><h3>Throughput this shift</h3><div class="big good" id="e-thru">—</div>
+        <div class="sub">units completed (2h window)</div></div>
+      <div class="card"><h3>Recoverable units / shift</h3><div class="big warn" id="e-recover">—</div>
+        <div class="sub">via the recommended action</div></div>
+      <div class="card"><h3>Est. margin recovered / yr</h3><div class="big good" id="e-money">—</div>
+        <div class="sub" id="e-moneysub">assumes $250 margin/unit, 2 shifts/day</div></div>
+    </div>
+    <div class="grid cols-2" style="margin-top:16px">
+      <div class="card"><h3>Instrument these first (value of information)</h3>
+        <ul class="voi" id="voi"></ul>
+        <div class="footnote">Greedy submodular ranking: each dark station by how much a sensor there
+          would shrink the forecast uncertainty — a costed, retrofit-free instrumentation roadmap.</div></div>
+      <div class="card"><h3>Trust — the twin scoring itself</h3><div id="valid"></div>
+        <div class="footnote">Measured on held-out scenarios vs the ground-truth simulator.</div></div>
+    </div>
+  </section>
+</main>
+<script>
+const MARGIN=250, SHIFTS=2, DAYS=250;
+let DATA=null, ws=null;
+const $=s=>document.querySelector(s);
+
+async function j(u){const r=await fetch(u); if(!r.ok) throw new Error(u+' -> '+r.status); return r.json();}
+function stateColor(s){return s==='working'?'var(--work)':s==='blocked'?'var(--block)':
+  s==='starved'?'var(--starve)':'var(--dark)';}
+
+async function init(){
+  try{
+    const sc=await j('/api/scenarios');
+    const sel=$('#scenario'); sel.innerHTML='';
+    sc.scenarios.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;sel.appendChild(o);});
+    sel.value = sc.scenarios.includes('takt_slip_s14')?'takt_slip_s14':sc.scenarios[0];
+    sel.onchange=load;
+    document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+      document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+      t.classList.add('active'); $('#'+t.dataset.v).classList.add('active');
+    });
+    await load(); loadValidation();
+  }catch(e){$('#err').textContent='Cannot reach the API — is uvicorn running? ('+e.message+')';}
+}
+
+async function load(){
+  const name=$('#scenario').value;
+  DATA=await j('/api/analysis/'+name);
+  drawStatic(); renderFloor(); renderPlant(); renderExec();
+  connectLive(name);
+}
+
+function drawStatic(){
+  const svg=$('#map'); const st=DATA.stations; const n=st.length;
+  const W=1000,H=150, pad=30, y=70, gap=(W-2*pad)/(n-1);
+  let s='';
+  // baseline rail
+  s+=`<line x1="${pad}" y1="${y}" x2="${W-pad}" y2="${y}" stroke="var(--line)" stroke-width="2"/>`;
+  st.forEach((d,i)=>{
+    const x=pad+i*gap;
+    const col=d.is_bottleneck?'var(--starve)':stateColor(d.state);
+    const r=d.is_bottleneck?9:6;
+    s+=`<circle cx="${x}" cy="${y}" r="${r}" fill="${col}"
+        stroke="${d.instrumented?'none':'#fff'}" stroke-width="${d.instrumented?0:2}">
+        <title>${d.name} (${d.instrumented?'sensor':'DARK'}) — ${d.state}, ~${d.cycle.mean}s</title></circle>`;
+    if(d.is_bottleneck) s+=`<text x="${x}" y="${y-16}" fill="var(--starve)" font-size="11"
+        text-anchor="middle" font-weight="700">▼ ${d.name}</text>`;
+    if(i%5===0) s+=`<text x="${x}" y="${y+22}" fill="var(--muted)" font-size="9" text-anchor="middle">${d.name}</text>`;
+  });
+  s+=`<g id="vehicles"></g>`;
+  svg.innerHTML=s;
+}
+
+function renderFloor(){
+  const b=DATA.bottleneck, f=DATA.forecast;
+  $('#bn-banner').innerHTML = `⚠️ Constraint localized to <b>${b.name}</b>` +
+    (b.instrumented?'':' — a <b>dark manual station with no sensor on it</b>') +
+    ` (confidence ${(b.confidence*100).toFixed(0)}%). Forecast: <b>${f.units_lost.mean}</b> units lost over 2h.`;
+  const r=DATA.recommendation, rc=$('#rec');
+  if(r){rc.innerHTML=`<div class="rec"><div class="pill">driver: ${r.driver}</div>
+    <div class="act">${r.action}</div>
+    <div>Recover <b>${r.recovered.mean}</b> units [${r.recovered.lo}–${r.recovered.hi}] ·
+    confidence <b>${(r.confidence*100).toFixed(0)}%</b></div>
+    <button class="accept" onclick="logAction('ACCEPTED: '+${JSON.stringify(r.action)})">Accept</button>
+    <button class="override" onclick="logAction('OVERRIDE by supervisor — kept current staffing')">Override</button>
+    <div class="log" id="auditlog">audit log:</div></div>`;}
+  else rc.innerHTML='<div class="sub">No action needed — line is balanced.</div>';
+  const d=DATA.defect, dc=$('#defect');
+  if(d){dc.innerHTML=`<div class="big warn">${d.affected_count}</div>
+    <div class="sub">vehicles processed during the drift at ${DATA.stations[d.station_id].name}
+    (onset ~${Math.round(d.onset_s/60)} min). <b>${d.still_on_line}</b> still on the line — containable now.</div>
+    <div class="log">affected VINs (sample): ${d.sample_vins.join(', ')} …</div>`;}
+  else dc.innerHTML='<div class="sub">No active defect signal in this scenario.</div>';
+}
+function logAction(m){const l=$('#auditlog'); if(l){const t=new Date().toLocaleTimeString();
+  l.textContent+='\n['+t+'] '+m;}}
+
+function renderPlant(){
+  const f=DATA.forecast, cs=DATA.stations[f.constraint_station_id];
+  $('#f-constraint').textContent=cs?cs.name:('S'+f.constraint_station_id);
+  $('#f-pbind').textContent='P(binding) = '+(f.p_binding*100).toFixed(0)+'%'+(cs&&!cs.instrumented?' · dark station':'');
+  $('#f-lost').textContent=f.units_lost.mean;
+  $('#f-lostband').textContent='80% band: '+f.units_lost.lo+' – '+f.units_lost.hi+' units';
+  $('#f-eta').textContent=f.eta_min.mean+' min';
+  $('#f-etaband').textContent='band: '+f.eta_min.lo+' – '+f.eta_min.hi+' min';
+  const maxc=Math.max(...DATA.stations.map(s=>s.cycle.hi));
+  const body=$('#cyc-body'); body.innerHTML='';
+  DATA.stations.forEach(s=>{
+    const tr=document.createElement('tr'); if(!s.instrumented) tr.className='darkrow';
+    const w=x=>(x/maxc*100).toFixed(1);
+    tr.innerHTML=`<td>${s.name}${s.is_bottleneck?' ◀':''}</td><td>${s.zone}</td>
+      <td>${s.instrumented?'sensor':'DARK'}</td>
+      <td><div class="barwrap">
+        <div class="band" style="left:${w(s.cycle.lo)}%;width:${w(s.cycle.hi-s.cycle.lo)}%"></div>
+        <div class="bar" style="left:0;width:${w(s.cycle.mean)}%;opacity:.85;
+          background:${s.is_bottleneck?'var(--starve)':'var(--accent)'}"></div>
+      </div><span class="sub">${s.cycle.mean}s [${s.cycle.lo}–${s.cycle.hi}]</span></td>
+      <td>${(s.p_binding*100).toFixed(0)}%</td>`;
+    body.appendChild(tr);
+  });
+}
+
+function renderExec(){
+  $('#e-thru').textContent=DATA.throughput;
+  const r=DATA.recommendation;
+  const rec=r?r.recovered.mean:0;
+  $('#e-recover').textContent=rec;
+  const yr=Math.round(rec*SHIFTS*DAYS*MARGIN/1000);
+  $('#e-money').textContent='$'+yr+'k';
+}
+
+async function loadValidation(){
+  try{
+    const v=await j('/api/validation');
+    $('#valid').innerHTML=`
+      <div class="metric"><span>Cycle-time MAPE — instrumented</span><b>${v.mape_instrumented}%</b></div>
+      <div class="metric"><span>Cycle-time MAPE — dark (no sensor)</span><b>${v.mape_dark}%</b></div>
+      <div class="metric"><span>False-alarm rate (clean baseline)</span><b>${(v.false_alarm_rate*100).toFixed(0)}%</b></div>
+      <div class="metric"><span>Forecast CRPS (lower is better)</span><b>${v.forecast_crps}</b></div>`;
+    const voi=v.value_of_information;
+    const ul=$('#voi'); ul.innerHTML='';
+    if(voi.instrument_first.length===0) ul.innerHTML='<li class="sub">Constraint already unambiguous — no new sensor needed.</li>';
+    voi.instrument_first.forEach((c,i)=>{
+      const li=document.createElement('li');
+      li.innerHTML=`<b>#${i+1}: Station ${c.station_id}</b> — shrinks forecast band by
+        <b>${c.forecast_band_reduction}</b> units`;
+      ul.appendChild(li);
+    });
+  }catch(e){$('#valid').textContent='validation unavailable';}
+}
+
+function connectLive(name){
+  if(ws){try{ws.close()}catch(e){}}
+  const proto=location.protocol==='https:'?'wss':'ws';
+  ws=new WebSocket(`${proto}://${location.host}/ws/live/${name}`);
+  ws.onmessage=ev=>{
+    const fr=JSON.parse(ev.data);
+    $('#clock').textContent=`t = ${fr.t_min} min · ${fr.throughput} units built · ${fr.positions.length} on line`;
+    const n=DATA.stations.length, W=1000,pad=30,y=70,gap=(W-2*pad)/(n-1);
+    const g=document.getElementById('vehicles'); if(!g)return;
+    g.innerHTML=fr.positions.map(p=>{
+      const x=pad+p*gap;
+      return `<circle cx="${x}" cy="${y}" r="3" fill="var(--accent)" opacity="0.8"/>`;
+    }).join('');
+  };
+}
+init();
+</script>
+</body>
+</html>
