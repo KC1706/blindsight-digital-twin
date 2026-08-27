@@ -70,6 +70,11 @@
   .voi li{margin:4px 0}
   .footnote{color:var(--muted);font-size:11px;margin-top:8px}
   #err{color:var(--starve);padding:10px 22px}
+  #scenario-info{margin:12px 22px 0;padding:10px 14px;background:var(--panel2);
+    border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;
+    font-size:13px;color:var(--text)}
+  #scenario-info b{color:var(--accent2)}
+  #scenario-info .what{color:var(--muted);margin-top:2px;display:block}
   #guide-btn{background:var(--accent);color:#fff;border:none;border-radius:7px;
     padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer}
   /* guided tour */
@@ -105,6 +110,7 @@
   <div class="tab" data-v="plant">📈 Plant manager</div>
   <div class="tab" data-v="exec">💼 Leadership</div>
 </div>
+<div id="scenario-info"></div>
 <div id="err"></div>
 <main>
   <!-- FLOOR -->
@@ -167,6 +173,16 @@
 const MARGIN=250, SHIFTS=2, DAYS=250;
 let DATA=null, ws=null;
 const $=s=>document.querySelector(s);
+const SCENARIOS={
+  baseline:{label:'✅ Normal shift',
+    what:'Everything runs as expected — no faults injected. Use this as the reference point: the twin should stay quiet, with no bottleneck and no units lost.'},
+  takt_slip_s14:{label:'🐢 Slow manual station (S14)',
+    what:'Station 14 — a manual station with NO sensor — gradually slips ~18s over takt after 30 minutes and quietly becomes the bottleneck. Watch the twin find and cost it with nothing on the station.'},
+  torque_drift_s8:{label:'🔧 Drifting tool (S8)',
+    what:'A torque tool at Station 8 goes 4% out of spec after 40 minutes, so every car it touches is defective until caught. This is the defect-tracing scenario — the twin names the exact affected cars.'},
+  surge_3x:{label:'🌊 Volume surge (3×)',
+    what:'Arrivals triple after 20 minutes (e.g. an upstream batch release), stress-testing how the line and the twin cope with a sudden flood of work.'},
+};
 
 async function j(u){const r=await fetch(u); if(!r.ok) throw new Error(u+' -> '+r.status); return r.json();}
 function stateColor(s){return s==='working'?'var(--work)':s==='blocked'?'var(--block)':
@@ -181,7 +197,8 @@ async function init(){
   try{
     const sc=await j('/api/scenarios');
     const sel=$('#scenario'); sel.innerHTML='';
-    sc.scenarios.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;sel.appendChild(o);});
+    sc.scenarios.forEach(n=>{const o=document.createElement('option');o.value=n;
+      o.textContent=(SCENARIOS[n]&&SCENARIOS[n].label)||n;sel.appendChild(o);});
     sel.value = sc.scenarios.includes('takt_slip_s14')?'takt_slip_s14':sc.scenarios[0];
     sel.onchange=load;
     document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>setView(t.dataset.v));
@@ -193,6 +210,10 @@ async function init(){
 
 async function load(){
   const name=$('#scenario').value;
+  const info=SCENARIOS[name];
+  $('#scenario-info').innerHTML = info
+    ? `<b>${info.label}</b> — <span>${info.what}</span>`
+    : '';
   DATA=await j('/api/analysis/'+name);
   drawStatic(); renderFloor(); renderPlant(); renderExec();
   connectLive(name);
