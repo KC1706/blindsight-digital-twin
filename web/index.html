@@ -63,8 +63,10 @@
   .bar{position:absolute;height:100%;border-radius:4px;background:var(--accent)}
   .band{position:absolute;height:100%;background:rgba(163,113,247,.25);border-radius:4px}
   .darkrow{color:var(--block)}
-  .metric{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)}
+  .metric{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);cursor:help}
+  .metric:hover{background:var(--panel2)}
   .metric b{font-size:16px}
+  .qmark{color:var(--accent);font-size:11px;opacity:.8}
   .voi li{margin:4px 0}
   .footnote{color:var(--muted);font-size:11px;margin-top:8px}
   #err{color:var(--starve);padding:10px 22px}
@@ -278,11 +280,18 @@ function renderExec(){
 async function loadValidation(){
   try{
     const v=await j('/api/validation');
-    $('#valid').innerHTML=`
-      <div class="metric"><span>Cycle-time MAPE — instrumented</span><b>${v.mape_instrumented}%</b></div>
-      <div class="metric"><span>Cycle-time MAPE — dark (no sensor)</span><b>${v.mape_dark}%</b></div>
-      <div class="metric"><span>False-alarm rate (clean baseline)</span><b>${(v.false_alarm_rate*100).toFixed(0)}%</b></div>
-      <div class="metric"><span>Forecast CRPS (lower is better)</span><b>${v.forecast_crps}</b></div>`;
+    const TT={
+      inst:"MAPE = mean absolute % error. For stations that HAVE a sensor, the estimated cycle time is off by only this much on average — essentially the sensor's own noise floor.",
+      dark:"The headline number. For DARK stations with no sensor at all, the twin reconstructs their speed to within this % of the truth — nearly as good as a measured station.",
+      fa:"How often it cries 'problem!' on a normal, fault-free shift. Measured over 12 clean shifts. Low is vital: a system that cries wolf gets ignored.",
+      crps:"A score for how good the probabilistic 2-hour forecast is — rewards being accurate AND honest about uncertainty. Lower is better; a naive 'guess the usual' baseline scores ~5, so this is ~10x better."};
+    const m=(label,val,tip)=>`<div class="metric" title="${tip}">
+      <span>${label} <span class="qmark">ⓘ</span></span><b>${val}</b></div>`;
+    $('#valid').innerHTML=
+      m('Cycle-time MAPE — instrumented', v.mape_instrumented+'%', TT.inst)+
+      m('Cycle-time MAPE — dark (no sensor)', v.mape_dark+'%', TT.dark)+
+      m('False-alarm rate (clean baseline)', (v.false_alarm_rate*100).toFixed(0)+'%', TT.fa)+
+      m('Forecast CRPS (lower is better)', v.forecast_crps, TT.crps);
     const voi=v.value_of_information;
     const ul=$('#voi'); ul.innerHTML='';
     if(voi.instrument_first.length===0) ul.innerHTML='<li class="sub">Constraint already unambiguous — no new sensor needed.</li>';
