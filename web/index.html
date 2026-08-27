@@ -68,6 +68,25 @@
   .voi li{margin:4px 0}
   .footnote{color:var(--muted);font-size:11px;margin-top:8px}
   #err{color:var(--starve);padding:10px 22px}
+  #guide-btn{background:var(--accent);color:#fff;border:none;border-radius:7px;
+    padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer}
+  /* guided tour */
+  #tour-hl{position:absolute;z-index:9998;border:2px solid var(--accent2);border-radius:10px;
+    box-shadow:0 0 0 9999px rgba(2,6,12,.78);pointer-events:none;
+    transition:all .3s cubic-bezier(.4,0,.2,1);display:none}
+  #tour-tip{position:absolute;z-index:9999;max-width:340px;background:var(--panel);
+    border:1px solid var(--accent);border-radius:12px;padding:16px 18px;display:none;
+    box-shadow:0 12px 40px rgba(0,0,0,.5)}
+  #tour-tip .step{color:var(--accent2);font-size:11px;font-weight:700;letter-spacing:.5px;
+    text-transform:uppercase}
+  #tour-tip h4{margin:6px 0 6px;font-size:16px}
+  #tour-tip p{margin:0 0 14px;color:var(--text);font-size:13px;line-height:1.55}
+  #tour-tip .row{display:flex;gap:8px;align-items:center}
+  #tour-tip .row .sp{flex:1;color:var(--muted);font-size:12px}
+  #tour-tip button{border-radius:7px;padding:7px 13px;font-size:13px;cursor:pointer;font-weight:600}
+  #tour-tip .next{background:var(--accent);color:#fff;border:none}
+  #tour-tip .prev{background:transparent;color:var(--muted);border:1px solid var(--line)}
+  #tour-tip .skip{background:transparent;color:var(--muted);border:none;font-weight:400}
 </style>
 </head>
 <body>
@@ -75,6 +94,7 @@
   <h1><span class="b">Blindsight</span> · digital twin</h1>
   <span class="tag">the line is the sensor</span>
   <div class="spacer"></div>
+  <button id="guide-btn" title="Take a guided tour of the dashboard">❓ Guide</button>
   <label class="tag">scenario&nbsp;</label>
   <select id="scenario"></select>
 </header>
@@ -150,6 +170,11 @@ async function j(u){const r=await fetch(u); if(!r.ok) throw new Error(u+' -> '+r
 function stateColor(s){return s==='working'?'var(--work)':s==='blocked'?'var(--block)':
   s==='starved'?'var(--starve)':'var(--dark)';}
 
+function setView(name){
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.v===name));
+  document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id===name));
+}
+
 async function init(){
   try{
     const sc=await j('/api/scenarios');
@@ -157,12 +182,10 @@ async function init(){
     sc.scenarios.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;sel.appendChild(o);});
     sel.value = sc.scenarios.includes('takt_slip_s14')?'takt_slip_s14':sc.scenarios[0];
     sel.onchange=load;
-    document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
-      document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
-      document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
-      t.classList.add('active'); $('#'+t.dataset.v).classList.add('active');
-    });
+    document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>setView(t.dataset.v));
+    $('#guide-btn').onclick=()=>startTour();
     await load(); loadValidation();
+    if(!localStorage.getItem('bs_tour_seen')){setTimeout(startTour,700);}
   }catch(e){$('#err').textContent='Cannot reach the API — is uvicorn running? ('+e.message+')';}
 }
 
@@ -287,6 +310,78 @@ function connectLive(name){
     }).join('');
   };
 }
+/* ---------------- guided tour ---------------- */
+const TOUR=[
+ {v:'floor',sel:'#scenario',t:'Pick a situation',
+  b:'Switch between a normal shift and injected problems — a manual station slipping over takt, a drifting tool, or a 3× arrival surge. The entire dashboard re-computes for that situation.'},
+ {v:'floor',sel:'.tabs',t:'Three views, one brain',
+  b:'The same underlying model, shaped for three people: the supervisor on the floor (now), the plant manager (next 2 hours), and leadership (money & sensors). This tour visits all three.'},
+ {v:'floor',sel:'#bn-banner',t:'The one-line headline',
+  b:'Plain-language summary of the single most important thing right now: which station is the constraint, whether it even has a sensor, and how many cars it will cost.'},
+ {v:'floor',sel:'#map',t:'Live line map',
+  b:'All 40 stations, left to right. Green = working, amber = blocked (work piling up behind it), red = starved (running dry in front). A white ring means the station is DARK — no sensor. Purple dots are cars flowing in real time. The ▼ marks the bottleneck.'},
+ {v:'floor',sel:'.legend',t:'Legend & live clock',
+  b:'What the colours mean, plus a live counter: minutes into the shift, cars built so far, and cars currently on the line.'},
+ {v:'floor',sel:'#rec-card',t:'Recommended action',
+  b:'The system’s suggestion (e.g. move one operator to the constraint), how many cars it recovers, and its confidence. Click Accept or Override — every decision is written to the audit log underneath.'},
+ {v:'floor',sel:'#defect-card',t:'Defect containment',
+  b:'When a tool drifts out of spec, this names how many cars were built during the bad window and how many are still on the line — so you can catch them before they ship.'},
+ {v:'plant',sel:'#f-constraint',t:'What will choke the line',
+  b:'The predicted binding constraint over the next 2 hours, and how certain the forecast is (P-binding = share of 500 simulations where this station is the bottleneck).'},
+ {v:'plant',sel:'#f-lost',t:'Cars lost',
+  b:'How many cars you lose over 2 hours if nothing changes — shown as a range (80% band), never a fake-exact single number.'},
+ {v:'plant',sel:'#f-eta',t:'How soon',
+  b:'Estimated time until you start losing cars — your window to act.'},
+ {v:'plant',sel:'#cyc-body',t:'Every station’s speed — with error bars',
+  b:'Each bar is the estimated cycle time; the lighter shaded band is the uncertainty. Amber rows are DARK stations reconstructed with NO sensor on them. The last column is each station’s probability of being the constraint.'},
+ {v:'exec',sel:'#e-money',t:'The business case',
+  b:'Estimated margin recovered per year if you act on the recommendation — the number leadership cares about.'},
+ {v:'exec',sel:'#voi',t:'Which sensor to buy first',
+  b:'If you can only afford one new sensor, this ranks where it removes the most forecast uncertainty. A costed, retrofit-free instrumentation plan instead of guesswork.'},
+ {v:'exec',sel:'#valid',t:'Proof you can trust it',
+  b:'The twin grading itself against the ground truth: accuracy on dark stations, false-alarm rate (the thing that makes crews ignore alerts), and forecast quality. This is why the numbers above are believable.'},
+];
+let tStep=0;
+function ensureTourEls(){
+  if(document.getElementById('tour-hl'))return;
+  const hl=document.createElement('div');hl.id='tour-hl';
+  const tip=document.createElement('div');tip.id='tour-tip';
+  document.body.appendChild(hl);document.body.appendChild(tip);
+}
+function startTour(){ensureTourEls();tStep=0;showStep();}
+function endTour(){localStorage.setItem('bs_tour_seen','1');
+  document.getElementById('tour-hl').style.display='none';
+  document.getElementById('tour-tip').style.display='none';}
+function showStep(){
+  const s=TOUR[tStep];setView(s.v);
+  setTimeout(()=>{
+    const el=document.querySelector(s.sel);const hl=document.getElementById('tour-hl');
+    const tip=document.getElementById('tour-tip');
+    if(!el){tStep++;return tStep<TOUR.length?showStep():endTour();}
+    el.scrollIntoView({behavior:'smooth',block:'center'});
+    setTimeout(()=>{
+      const r=el.getBoundingClientRect();const pad=6;
+      const top=r.top+scrollY-pad,left=r.left+scrollX-pad;
+      hl.style.display='block';hl.style.top=top+'px';hl.style.left=left+'px';
+      hl.style.width=(r.width+pad*2)+'px';hl.style.height=(r.height+pad*2)+'px';
+      tip.style.display='block';
+      tip.innerHTML=`<div class="step">Step ${tStep+1} of ${TOUR.length} · ${s.v==='floor'?'Floor supervisor':s.v==='plant'?'Plant manager':'Leadership'}</div>
+        <h4>${s.t}</h4><p>${s.b}</p>
+        <div class="row"><button class="skip" onclick="endTour()">Skip tour</button><span class="sp"></span>
+        ${tStep>0?'<button class="prev" onclick="tourPrev()">Back</button>':''}
+        <button class="next" onclick="tourNext()">${tStep===TOUR.length-1?'Done':'Next →'}</button></div>`;
+      // place tip below the highlight, or above if no room
+      let tt=top+r.height+pad*2+10;
+      if(tt+tip.offsetHeight>scrollY+innerHeight) tt=top-tip.offsetHeight-10;
+      let tl=Math.min(left, scrollX+innerWidth-tip.offsetWidth-16);
+      tip.style.top=Math.max(scrollY+10,tt)+'px';tip.style.left=Math.max(10,tl)+'px';
+    },350);
+  },60);
+}
+function tourNext(){tStep++;tStep<TOUR.length?showStep():endTour();}
+function tourPrev(){if(tStep>0){tStep--;showStep();}}
+window.startTour=startTour;window.endTour=endTour;window.tourNext=tourNext;window.tourPrev=tourPrev;
+
 init();
 </script>
 </body>
