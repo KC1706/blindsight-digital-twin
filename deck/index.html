@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blindsight — DarkShield · AIC 2026</title>
+<link rel="stylesheet" href="assets/reveal/reset.min.css">
+<link rel="stylesheet" href="assets/reveal/reveal.min.css">
+<style>
+  :root{
+    --bg:#0B0B10; --panel:#14141A; --panel2:#1b1b22; --line:#2a2a34;
+    --text:#f2f2f6; --dim:#9a9aa6; --purple:#A100FF; --purple2:#c46bff;
+    --good:#7ee787; --warn:#e3b341; --bad:#f85149;
+  }
+  .reveal{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    font-size:30px;color:var(--text)}
+  .reveal .slides{text-align:left}
+  .reveal section{background:var(--bg)}
+  /* fill the slide so the footer flows to the bottom (center:false doesn't stretch sections) */
+  .reveal .slides>section{display:flex;flex-direction:column;min-height:86vh}
+  .reveal .slides>section.present{display:flex}
+  .reveal h1,.reveal h2,.reveal h3{color:var(--text);font-weight:800;text-transform:none;
+    letter-spacing:-.01em;line-height:1.08;margin:0 0 .35em}
+  .reveal h1{font-size:2.0em} .reveal h2{font-size:1.5em} .reveal h3{font-size:1.05em}
+  .reveal .backgrounds{background:var(--bg)}
+  .reveal em{color:var(--purple2);font-style:normal;font-weight:700}
+  .reveal strong{color:var(--good)}
+  .kicker{color:var(--purple2);font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+    font-size:.5em;margin-bottom:.6em}
+  .dim{color:var(--dim)}
+  .lead{font-size:.8em;color:var(--dim);line-height:1.45}
+  .reveal ul{margin:.3em 0 0 1em} .reveal li{margin:.32em 0;line-height:1.35}
+  .grid{display:grid;gap:22px;margin-top:.5em}
+  .g2{grid-template-columns:1fr 1fr} .g3{grid-template-columns:repeat(3,1fr)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px 24px}
+  .card.accent{border-color:var(--purple)}
+  .stat{font-size:2.0em;font-weight:800;line-height:1;color:var(--text)}
+  .stat.good{color:var(--good)} .stat.warn{color:var(--warn)} .stat.pur{color:var(--purple2)}
+  .stat .u{font-size:.4em;color:var(--dim);font-weight:600}
+  .cap{font-size:.5em;color:var(--dim);margin-top:.5em;text-transform:uppercase;letter-spacing:.08em}
+  .foot{margin-top:auto;padding-top:1em;display:flex;justify-content:space-between;gap:20px;
+    font-size:.42em;color:var(--dim);letter-spacing:.06em}
+  .pill{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:999px;
+    padding:3px 14px;font-size:.5em;color:var(--dim);margin:0 6px 6px 0}
+  .big-quote{font-size:1.35em;font-weight:800;line-height:1.2}
+  .src{font-size:.4em;color:var(--dim);margin-top:1em;font-style:italic}
+  .flow{display:flex;align-items:stretch;gap:0;margin-top:.4em}
+  .step{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 14px;
+    position:relative;text-align:center}
+  .step .n{color:var(--purple2);font-weight:800;font-size:.55em;letter-spacing:.1em}
+  .step h4{margin:.3em 0 .2em;font-size:.62em;color:var(--text)}
+  .step p{margin:0;font-size:.44em;color:var(--dim);line-height:1.3}
+  .arrow{align-self:center;color:var(--purple);font-size:.9em;padding:0 6px;flex:none}
+  iframe.hero{width:100%;height:560px;border:1px solid var(--line);border-radius:14px;background:#000}
+  .reveal .slide-number{background:transparent;color:var(--dim);font-size:14px}
+  .demo-beat{display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:baseline;
+    padding:12px 0;border-bottom:1px solid var(--line)}
+  .demo-beat .t{color:var(--purple2);font-weight:800;font-size:.55em;white-space:nowrap}
+  .demo-beat .d{font-size:.62em} .demo-beat .d small{color:var(--dim)}
+  .demo-beat .v{color:var(--dim);font-size:.5em;white-space:nowrap}
+  .center{text-align:center}
+  .reveal .slides>section.center{justify-content:center;align-items:center}
+  .title-mark{width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,var(--purple),#5a00a0);
+    display:flex;align-items:center;justify-content:center;font-weight:900;font-size:34px;margin-bottom:24px}
+</style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+
+<!-- 1 · TITLE -->
+<section data-background-color="#0B0B10">
+  <div class="title-mark">B</div>
+  <div class="kicker">Team DarkShield · AIC 2026 · Track 4 · DigitalTwin.ai</div>
+  <h1>Blindsight</h1>
+  <div class="big-quote">A digital twin that sees the stations<br>it can't <em>measure</em>.</div>
+  <p class="lead" style="margin-top:.8em">The stations that most need watching are the ones nothing can see.<br>
+    Blindsight reads the sensors already on the line — differently.</p>
+  <div class="foot"><span>the line is the sensor</span><span>Round 2 · working prototype</span></div>
+</section>
+
+<!-- 2 · THE BLIND LINE -->
+<section>
+  <div class="kicker">The problem</div>
+  <h2>The line is half blind — where it matters most</h2>
+  <div class="grid g3">
+    <div class="card"><div class="stat pur">~40</div><div class="cap">stations, mixed-model line</div></div>
+    <div class="card accent"><div class="stat warn">1 in 4</div><div class="cap">stations dark — no sensor at all (10 of 40)</div></div>
+    <div class="card"><div class="stat">2:00pm</div><div class="cap">when MES tells you it broke</div></div>
+  </div>
+  <p class="lead" style="margin-top:.8em">Robot cells are richly instrumented. Manual stations — where humans vary and the
+    bottleneck usually hides — often have <em>nothing but a checklist</em>. MES/PLC dashboards are a
+    rear-view mirror: they tell you the line stopped <em>after</em> it stopped.</p>
+  <div class="foot"><span>9:14am: a torque tool drifts 4%. No alarm. Found at 2pm — hundreds of cars carry it.</span><span>2</span></div>
+</section>
+
+<!-- 3 · THE INSIGHT -->
+<section>
+  <div class="kicker">The idea</div>
+  <h2>The line already knows. Read it differently.</h2>
+  <div class="grid g2" style="grid-template-columns:1.15fr 1fr;align-items:center">
+    <div>
+      <ul>
+        <li><em>Blocked / starved.</em> A slow dark station starves everything downstream and blocks
+          everything upstream — both visible at the instrumented neighbours. The boundary points
+          straight at the bottleneck.</li>
+        <li><em>Travel-time tomography.</em> Each vehicle's checkpoint-to-checkpoint time is one
+          equation over the stations between. Thousands of vehicles → a system you can <strong>solve</strong>
+          for every station's cycle time, sensor or not.</li>
+      </ul>
+      <p class="src">No retrofit. No new sensors. Just the line, finally telling you what it already knows.</p>
+    </div>
+    <div class="card center">
+      <div class="stat pur" style="font-size:1.3em">the line<br>is the sensor</div>
+      <div class="cap">the one idea</div>
+    </div>
+  </div>
+  <div class="foot"><span>live visual on the next beat / demo</span><span>3</span></div>
+</section>
+
+<!-- 3b · HERO VISUAL (optional full-bleed) -->
+<section data-background-color="#000">
+  <div class="kicker" style="position:absolute;top:24px;left:40px">The line is the sensor — live</div>
+  <iframe class="hero" src="assets/hero-animation.html" title="Blindsight animation"></iframe>
+  <div class="foot"><span>dark stations reconstructed from flow + scans</span><span>3</span></div>
+</section>
+
+<!-- 4 · HOW IT WORKS -->
+<section>
+  <div class="kicker">The mechanism</div>
+  <h2>Five moves on the sensors you already have</h2>
+  <div class="flow">
+    <div class="step"><div class="n">01</div><h4>Virtual sensing</h4><p>Estimate every dark station's cycle time, with error bars</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">02</div><h4>Forecast</h4><p>500 Monte-Carlo runs, 2h ahead: which station binds, when</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">03</div><h4>Prescribe</h4><p>Re-simulate levers; rank by units recovered</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">04</div><h4>Defect trace</h4><p>Name the exact VINs a drift touched, and where they are now</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">05</div><h4>Trust</h4><p>Every estimate backtested; rank what to instrument first</p></div>
+  </div>
+  <p class="lead" style="margin-top:1em">Three views, one model: <em>floor supervisor</em> (live map),
+    <em>plant manager</em> (2-hour forecast), <em>leadership</em> (ROI + "instrument these 3 first").</p>
+  <div class="foot"><span>engine/ · pure Python · fully tested (27 tests, CI green)</span><span>4</span></div>
+</section>
+
+<!-- 5 · SEE THE INVISIBLE -->
+<section>
+  <div class="kicker">Proof · virtual sensing</div>
+  <h2>It estimates stations with no sensor — and says how sure</h2>
+  <div class="grid g3">
+    <div class="card"><div class="stat good">1.9%</div><div class="cap">cycle-time MAPE · instrumented (noise floor)</div></div>
+    <div class="card accent"><div class="stat good">3.3%</div><div class="cap">cycle-time MAPE · <em>dark, no sensor</em></div></div>
+    <div class="card"><div class="stat good">100%</div><div class="cap">error-bar coverage (well-calibrated)</div></div>
+  </div>
+  <p class="lead" style="margin-top:.9em">Every estimate ships with an 80% band — never a bare number.
+    Dark stations that share a segment get honestly <em>wider</em> bands, which drives the "what to
+    instrument" roadmap later.</p>
+  <div class="foot"><span>docs/VALIDATION.md · reproducible: python -m engine.validate</span><span>5</span></div>
+</section>
+
+<!-- 6 · FORECAST -->
+<section>
+  <div class="kicker">Proof · forecast · scenario takt_slip_s14</div>
+  <h2>A dark station drifts — we see the jam coming</h2>
+  <div class="grid g2" style="grid-template-columns:1fr 1fr">
+    <div class="card">
+      <p style="margin:0"><em>Dark Station 14</em> slips ~18s over takt after 30 min.
+        With <strong>no sensor on S14</strong>, blocked/starved inference localizes the constraint to it.</p>
+      <p class="cap" style="margin-top:1em">estimated cycle <strong>68.5s</strong> · true 67.4s</p>
+    </div>
+    <div class="card accent">
+      <div class="stat warn">~15 <span class="u">units at risk / 2h</span></div>
+      <div class="cap" style="margin-top:.6em">band [10–19] · P(binding) = 1.0 · <strong>~9 min</strong> median lead time</div>
+      <p class="lead" style="margin-top:.8em">Then: <em>move one operator to S14</em> → recover units,
+        confidence from paired counterfactual re-sims.</p>
+    </div>
+  </div>
+  <div class="foot"><span>~9 minutes of warning before the first unit is lost — where MES shows nothing until end-of-line audit</span><span>6</span></div>
+</section>
+
+<!-- 7 · LIVE & RECURSIVE -->
+<section>
+  <div class="kicker">Proof · real-time (new)</div>
+  <h2>Live &amp; recursive — it reacts, it doesn't wait for the shift</h2>
+  <div class="grid g2" style="grid-template-columns:1fr 1fr;align-items:center">
+    <div>
+      <p style="margin:0">A Rao-Blackwellized particle filter fuses scans into a live per-segment
+        posterior <em>every tick</em>, and snaps to a regime change — an operator swap, a tool drift —
+        instead of crawling toward it.</p>
+      <p class="lead" style="margin-top:.8em">Vehicle positions are pinned by scans, so the filter only
+        tracks the thing that moves: each station's live rate.</p>
+    </div>
+    <div class="card accent center">
+      <div class="stat pur">~5 <span class="u">min</span></div>
+      <div class="cap">to detect an injected regime change, live</div>
+    </div>
+  </div>
+  <div class="foot"><span>engine/online_filter.py · /api/live_state · floor-view "live constraint"</span><span>7</span></div>
+</section>
+
+<!-- 8 · MIXED-MODEL -->
+<section>
+  <div class="kicker">Proof · mixed-model (new)</div>
+  <h2>Different variants, different work — recovered with no sensor</h2>
+  <div class="grid g2" style="grid-template-columns:1.1fr 1fr;align-items:center">
+    <div>
+      <p style="margin:0">Real lines are mixed-model: a sunroof on one trim adds work at one station.
+        Blindsight recovers <em>per-variant</em> service times from travel-time tomography and
+        <strong>localizes the extra operation to the exact dark station</strong>.</p>
+      <p class="src">Honest limit: in a no-overtaking line only <em>extra</em> work is identifiable — a
+        globally faster variant is pinned behind slower units. We say so, with bands.</p>
+    </div>
+    <div class="card center"><div class="stat good">~7%</div><div class="cap">dark per-variant error vs ground truth</div></div>
+  </div>
+  <div class="foot"><span>engine/virtual_sensor.py · /api/variants · Plant view panel</span><span>8</span></div>
+</section>
+
+<!-- 9 · TRUST -->
+<section>
+  <div class="kicker">Proof · trust</div>
+  <h2>We don't ask you to trust it. Here it is scoring itself.</h2>
+  <div class="grid g3">
+    <div class="card accent"><div class="stat good">0%</div><div class="cap">false-alarm rate · 12 clean shifts</div></div>
+    <div class="card"><div class="stat good">~10×</div><div class="cap">forecast CRPS vs persistence (0.48 vs 5.05)</div></div>
+    <div class="card"><div class="stat good">100%</div><div class="cap">dark-station band coverage</div></div>
+  </div>
+  <p class="lead" style="margin-top:.9em">False alarms are the thing that makes crews ignore a system —
+    so we report that <em>first</em>. Backtested on held-out shifts, split honestly by
+    instrumented vs dark.</p>
+  <div class="foot"><span>docs/VALIDATION.md</span><span>9</span></div>
+</section>
+
+<!-- 10 · BUSINESS CASE -->
+<section>
+  <div class="kicker">The business case</div>
+  <h2>Retrofit-free value, in the first month</h2>
+  <div class="grid g3">
+    <div class="card accent"><div class="stat good">~$7.5M<span class="u">/yr · one line</span></div><div class="cap">addressable value (base), once ramped</div></div>
+    <div class="card"><div class="stat pur">&lt; 1<span class="u">month</span></div><div class="cap">payback (base) — read honestly: loss scale is large</div></div>
+    <div class="card"><div class="stat good">$0<span class="u">hardware</span></div><div class="cap">read-only tap on scans + PLC — no retrofit</div></div>
+  </div>
+  <p class="lead" style="margin-top:.9em">Software on data you already emit: <em>$8k/line/mo</em>, ~$25k
+    one-time integration. Plus <strong>$88k</strong> deferred capex by instrumenting the 3 stations that
+    matter instead of all 14 dark ones.</p>
+  <div class="foot"><span>docs/ROI_MODEL.md · PRICING.md — low-case floor ~$0.85M/yr still pays back in ~5 months</span><span>10</span></div>
+</section>
+
+<!-- 11 · ROADMAP + ASK -->
+<section>
+  <div class="kicker">Roadmap &amp; the ask</div>
+  <h2>Instrument these three first — then scale</h2>
+  <div class="grid g2" style="grid-template-columns:1fr 1fr">
+    <div class="card">
+      <h3>Value of information</h3>
+      <p class="lead">The twin turns its own uncertainty into a costed plan: on takt_slip_s14 a sensor on
+        <em>S14</em> removes <strong>4.8 of 8.3</strong> units of forecast uncertainty — the biggest single
+        buy. Rank, cost, install only what pays.</p>
+    </div>
+    <div class="card accent">
+      <h3>The ask</h3>
+      <p class="lead">One line, one shift-pattern, read-only. We deploy on your existing scan + PLC feed,
+        backtest on your last month, and show units recovered in the first pilot.</p>
+      <p class="cap" style="margin-top:.8em">no new hardware · no line downtime · exit any time</p>
+    </div>
+  </div>
+  <div class="foot"><span>docs/GTM_ROADMAP.md · phased rollout</span><span>11</span></div>
+</section>
+
+<!-- 12 · LIVE DEMO -->
+<section>
+  <div class="kicker">Live demo · ~4 min on the real dashboard</div>
+  <h2>See it happen — not on a slide</h2>
+  <div style="margin-top:.2em">
+    <div class="demo-beat"><span class="t">0 · 15s</span><span class="d">The blind line <small>— 10 of 40 grey, no sensor</small></span><span class="v">Floor view</span></div>
+    <div class="demo-beat"><span class="t">1 · 45s</span><span class="d">See the invisible <small>— dark cycle times + error bars</small></span><span class="v">Floor · virtual sensing</span></div>
+    <div class="demo-beat"><span class="t">2 · 45s</span><span class="d">The takt slip <small>— S14 fingered, 2h forecast</small></span><span class="v">Plant · takt_slip_s14</span></div>
+    <div class="demo-beat"><span class="t">3 · 30s</span><span class="d">The recommendation <small>— move an operator; Accept / audit log</small></span><span class="v">Floor · prescribe</span></div>
+    <div class="demo-beat"><span class="t">4 · 30s</span><span class="d">The drifting tool <small>— exact VINs contained</small></span><span class="v">torque_drift_s8</span></div>
+    <div class="demo-beat"><span class="t">5 · 30s</span><span class="d">Do we trust it? <small>— the validation panel</small></span><span class="v">Plant · trust</span></div>
+    <div class="demo-beat"><span class="t">6 · 30s</span><span class="d">The business case <small>— units/$ saved, instrument these 3</small></span><span class="v">Leadership</span></div>
+  </div>
+  <div class="foot"><span>fallback recording of every scenario checked in &amp; tested offline</span><span>12</span></div>
+</section>
+
+<!-- CLOSE -->
+<section data-background-color="#0B0B10" class="center">
+  <div class="title-mark" style="margin:0 auto 24px">B</div>
+  <h2>No retrofit. No new sensors.<br>Just the line, finally telling you what it knows.</h2>
+  <p class="lead" style="margin-top:1em">Team DarkShield · Blindsight · the line is the sensor</p>
+</section>
+
+</div></div>
+<script src="assets/reveal/reveal.min.js"></script>
+<script>
+  Reveal.initialize({
+    hash:true, slideNumber:false, controls:true, progress:true,
+    transition:'fade', backgroundTransition:'fade',
+    width:1280, height:720, margin:0.06, center:false,
+  });
+</script>
+</body>
+</html>
