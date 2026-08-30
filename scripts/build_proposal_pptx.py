@@ -142,7 +142,7 @@ para(tf, "MES / SCADA dashboards show only what's wired, and only after the stop
 para(tf, "APM / predictive-maintenance tools need a sensor on the asset — no help for the dark stations.", 13, TEXT, bullet=True)
 para(tf, "Digital-twin / simulation platforms are offline, design-time — not live inference from partial data.", 13, TEXT, bullet=True)
 para(tf, "Retrofitting means scarce maintenance windows and capex.", 13, TEXT, bullet=True)
-statcard(s, 0.7, 5.2, 3.9, "≈ $16.5M", "cost of line-blindness / yr (base; $3.4M–$64.6M)", WARN)
+statcard(s, 0.7, 5.2, 4.6, "≈ ₹140 Cr", "cost of line-blindness / yr (base; ₹29–549 Cr)", WARN)
 footer(s, "docs/COST_OF_BLINDNESS.md · MARKET_LANDSCAPE.md")
 
 # ---- 3 · solution ----
@@ -173,16 +173,16 @@ footer(s, "docs/PERSONAS.md · all three views implemented in web/")
 
 # ---- 5 · business case ----
 s = slide(); kicker(s, "4 · Business case & impact"); title(s, "Retrofit-free value, in the first month")
-statcard(s, 0.7, 2.1, 3.9, "~$7.5M", "addressable value / yr · one line (base, ramped)", GOOD)
+statcard(s, 0.7, 2.1, 3.9, "~₹64 Cr", "addressable value / yr · one line (base, ramped)", GOOD)
 statcard(s, 4.75, 2.1, 3.9, "< 1 month", "payback (base) — implementation cost alone", PUR2)
-statcard(s, 8.8, 2.1, 3.85, "$0", "new hardware — read-only tap on scans + PLC", GOOD)
+statcard(s, 8.8, 2.1, 3.85, "₹0", "new hardware — read-only tap on scans + PLC", GOOD)
 tf = box(s, 0.7, 4.0, 12, 0.6)
-para(tf, "Value = capture_rate × cost-of-blindness + deferred capex.  Priced per line: $10k/mo + ~$40k one-time.", 13, DIM, first=True)
+para(tf, "Value = capture_rate × cost-of-blindness + deferred capex.  Priced per line: ₹8.5 lakh/mo + ~₹34 lakh one-time.", 13, DIM, first=True)
 table(s, 0.7, 4.7, 12, [
     ["Scenario", "Annual value (ramped)", "Year-1 cost", "Payback"],
-    ["Low — the number to lead with", "$0.85M", "$121,000", "~5 months"],
-    ["Base", "$7.5M", "$160,000", "< 1 month"],
-    ["High", "$39.0M", "$240,000", "< 1 month"],
+    ["Low — the number to lead with", "₹7.2 Cr", "₹1.03 Cr", "~5 months"],
+    ["Base", "₹64 Cr", "₹1.36 Cr", "< 1 month"],
+    ["High", "₹332 Cr", "₹2.04 Cr", "< 1 month"],
 ], [4.2, 3.2, 2.3, 2.3], fs=12)
 footer(s, "docs/ROI_MODEL.md · PRICING.md · PILOT_KPIS.md")
 
