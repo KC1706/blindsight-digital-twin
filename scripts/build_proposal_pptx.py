@@ -222,7 +222,7 @@ para(tf, "Every predictive claim is backtested, not asserted — split honestly 
         "on held-out shifts. On takt_slip_s14, the dark bottleneck S14 is localized with no sensor on it and its "
         "cycle estimated at 68.5s (true 67.4s), with ~9 minutes of median lead time before the first unit is lost.", 14, TEXT, first=True)
 para(tf, "Reproducible:  python -m engine.validate", 12, DIM)
-footer(s, "docs/VALIDATION.md · 27 automated tests, CI green")
+footer(s, "docs/VALIDATION.md · 31 automated tests, CI green")
 
 # ---- 9 · close ----
 s = slide()

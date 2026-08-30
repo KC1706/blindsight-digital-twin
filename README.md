@@ -76,7 +76,7 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
 # tests (the twin scoring itself)
-pytest -q                      # 27 tests
+pytest -q                      # 31 tests
 
 # the dashboard + API (then open http://127.0.0.1:8000/)
 ./.venv/bin/uvicorn api.main:app --port 8000
