@@ -1,5 +1,7 @@
 # Cost of Line Blindness — baseline loss model
 
+> Figures in INR (₹ Cr = 10M, ₹ lakh = 100k). Underlying model in USD, converted at **₹85/USD**.
+
 **Issue:** #42 · **Owner:** BA · **Feeds:** [`ROI_MODEL.md`](ROI_MODEL.md) (#43),
 [`BUSINESS_PROPOSAL.md`](BUSINESS_PROPOSAL.md) §4.
 
@@ -38,9 +40,9 @@ Loss_ripple = episodes_per_shift × ΔMTTD_min × (60 / takt_s) × margin_per_un
 |---|---|---|---|---|
 | `episodes_per_shift` | bottleneck-migration events/shift needing diagnosis | 0.5 | 1 | 2 |
 | `ΔMTTD_min` | mean-time-to-detect saved (walk-the-line vs. instant localization) | 8 | 15 | 25 |
-| `margin_per_unit` | contribution margin per completed unit (assumption, replace with plant figure) | $1,500 | $2,000 | $3,000 |
+| `margin_per_unit` | contribution margin per completed unit (assumption, replace with plant figure) | ₹1.28 lakh | ₹1.7 lakh | ₹2.55 lakh |
 
-Base case: `1 × 15 × 1 × $2,000` = **$30,000/shift** → `× S_day × D_yr` = **$15.0M/yr**.
+Base case: `1 × 15 × 1 × ₹1.7 lakh` = **₹25.5 lakh/shift** → `× S_day × D_yr` = **₹128 Cr/yr**.
 
 ### 2.2 Late defect detection (undetected SPC drift)
 
@@ -59,12 +61,12 @@ Loss_defect = events_per_year × (units_affected_baseline − units_affected_bli
 | `events_per_year` (SPC drift events) | 26 | 52 | 104 |
 | `units_affected_baseline` (undetected window → units) | 60 | 120 | 240 |
 | `units_affected_blindsight` (contained window) | 5 | 10 | 20 |
-| `cost_per_unit_rework` | $100 | $150 | $250 |
+| `cost_per_unit_rework` | ₹8,500 | ₹12,750 | ₹21,250 |
 | `field_escape_rate` (fraction of baseline-affected units that reach the field) | 2% | 5% | 8% |
-| `cost_per_field_escape` (warranty/recall-class cost) | $1,000 | $2,000 | $4,000 |
+| `cost_per_field_escape` (warranty/recall-class cost) | ₹85,000 | ₹1.7 lakh | ₹3.4 lakh |
 
-Base case: rework avoided = `52 × (120-10) × $150` = **$858,000/yr**; field-escape avoided =
-`52 × 5% × 120 × $2,000` = **$624,000/yr** → **≈ $1.48M/yr**.
+Base case: rework avoided = `52 × (120-10) × ₹12,750` = **₹7.3 Cr/yr**; field-escape avoided =
+`52 × 5% × 120 × ₹1.7 lakh` = **₹5.3 Cr/yr** → **≈ ₹12.6 Cr/yr**.
 
 ### 2.3 Reactive firefighting labor
 
@@ -78,19 +80,19 @@ Loss_firefighting = hours_per_day × loaded_hourly_cost × D_yr × reduction_fra
 | Variable | Low | Base | High |
 |---|---|---|---|
 | `hours_per_day` (diagnosis time across shifts) | 0.5 | 1 | 2 |
-| `loaded_hourly_cost` | $60 | $75 | $100 |
+| `loaded_hourly_cost` | ₹5,100 | ₹6,375 | ₹8,500 |
 | `reduction_fraction` (Blindsight removes most of the search, not the fix) | 50% | 70% | 85% |
 
-Base case: `1 × $75 × 250 × 70%` = **$13,125/yr** (small relative to §2.1–2.2 — included for
+Base case: `1 × ₹6,375 × 250 × 70%` = **₹11.2 lakh/yr** (small relative to §2.1–2.2 — included for
 completeness, not as a pitch headline).
 
 ## 3. Total cost of blindness (annual)
 
 | Scenario | Ripple | Defect | Firefighting | **Total** | % of `U_yr × margin` |
 |---|---|---|---|---|---|
-| Low | $3.0M | $0.4M | $0.005M | **$3.4M** | ~9% |
-| **Base** | **$15.0M** | **$1.5M** | **$0.01M** | **≈ $16.5M** | ~33% |
-| High | $60.0M | $4.6M | $0.04M | **$64.6M** | — |
+| Low | ₹25.5 Cr | ₹3.4 Cr | ₹0.04 Cr | **₹29 Cr** | ~9% |
+| **Base** | **₹128 Cr** | **₹12.75 Cr** | **₹0.09 Cr** | **≈ ₹140 Cr** | ~33% |
+| High | ₹510 Cr | ₹39 Cr | ₹0.34 Cr | **₹549 Cr** | — |
 
 ## 4. Sensitivity — top drivers
 

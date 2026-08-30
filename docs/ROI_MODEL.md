@@ -1,5 +1,7 @@
 # ROI / Business-Case Model
 
+> Figures in INR (₹ Cr = 10M, ₹ lakh = 100k). Underlying model in USD, converted at **₹85/USD**.
+
 **Issue:** #43 · **Depends on:** [`COST_OF_BLINDNESS.md`](COST_OF_BLINDNESS.md) (#42) ·
 **Feeds:** Leadership dashboard (#22), business-case slides (#54),
 [`BUSINESS_PROPOSAL.md`](BUSINESS_PROPOSAL.md) §4.
@@ -21,11 +23,11 @@ Value_yr1 = capture_rate × (Loss_ripple + Loss_defect)   [Loss_firefighting exc
 
 | Variable | Low | Base | High |
 |---|---|---|---|
-| `Loss_ripple + Loss_defect` (from #42, annual, one line) | $3.4M | $16.5M | $64.6M |
+| `Loss_ripple + Loss_defect` (from #42, annual, one line) | ₹29 Cr | ₹140 Cr | ₹549 Cr |
 | `capture_rate` (share of addressable loss realized once ramped — not 100%: some episodes are still unrecoverable even with instant localization) | 25% | 45% | 60% |
-| `deferred_capex_savings` — instrument top-3 (VoI, #36) vs. all 14 dark stations, at `$8,000`/station installed | (14-3)×$8k = **$88,000** one-time | same | same |
+| `deferred_capex_savings` — instrument top-3 (VoI, #36) vs. all 14 dark stations, at `₹6.8 lakh`/station installed | (14-3)×₹6.8 lakh = **₹75 lakh** one-time | same | same |
 
-Base case: `45% × $16.5M + $0.088M` = **≈ $7.5M** addressable value, one line, once ramped to
+Base case: `45% × ₹140 Cr + ₹0.75 Cr` = **≈ ₹64 Cr** addressable value, one line, once ramped to
 steady state.
 
 ## 2. Ramp — value is not day-one
@@ -41,9 +43,9 @@ rate) both build over the pilot. We model a linear ramp to full `capture_rate` b
 
 | Component | Low | Base | High |
 |---|---|---|---|
-| SaaS license (per line, per month) — see [`PRICING.md`](PRICING.md) (#45) | $8,000 | $10,000 | $15,000 |
-| One-time implementation (read-only tap setup, scan-log integration) | $25,000 | $40,000 | $60,000 |
-| **Year-1 platform cost** (`license×12 + implementation`) | $121,000 | $160,000 | $240,000 |
+| SaaS license (per line, per month) — see [`PRICING.md`](PRICING.md) (#45) | ₹6.8 lakh | ₹8.5 lakh | ₹12.75 lakh |
+| One-time implementation (read-only tap setup, scan-log integration) | ₹21 lakh | ₹34 lakh | ₹51 lakh |
+| **Year-1 platform cost** (`license×12 + implementation`) | ₹1.03 Cr | ₹1.36 Cr | ₹2.04 Cr |
 
 ## 4. Payback period
 
@@ -53,9 +55,9 @@ Payback_month = first month m where Σ(Value_month, 1..m) ≥ Σ(Platform_cost_m
 
 | Scenario | Annual value (ramped) | Year-1 platform cost | **Payback** |
 |---|---|---|---|
-| Low (Low loss × Low capture) | $0.85M/yr | $121,000 | ~5 months |
-| **Base** | **$7.5M/yr** | **$160,000** | **< 1 month** (implementation cost alone) |
-| High | $39.0M/yr | $240,000 | **< 1 month** |
+| Low (Low loss × Low capture) | ₹7.2 Cr/yr | ₹1.03 Cr | ~5 months |
+| **Base** | **₹64 Cr/yr** | **₹1.36 Cr** | **< 1 month** (implementation cost alone) |
+| High | ₹332 Cr/yr | ₹2.04 Cr | **< 1 month** |
 
 **Read this honestly, not as a headline:** the sub-month payback in Base/High is an artifact
 of the scale gap between an OEM assembly line's throughput value and a software subscription
@@ -67,9 +69,9 @@ the number to lead with in the pitch; it survives a skeptic halving every input.
 
 | Year | Value (ramped, Base) | Platform cost (Base) | Cumulative net |
 |---|---|---|---|
-| 1 | $7.5M × (avg ramp ≈ 55%) ≈ $4.1M | $160,000 | $3.9M |
-| 2 | $7.5M | $120,000 (license only) | $11.3M |
-| 3 | $7.5M | $120,000 | $18.7M |
+| 1 | ₹64 Cr × (avg ramp ≈ 55%) ≈ ₹35 Cr | ₹1.36 Cr | ₹33 Cr |
+| 2 | ₹64 Cr | ₹1.02 Cr (license only) | ₹96 Cr |
+| 3 | ₹64 Cr | ₹1.02 Cr | ₹159 Cr |
 
 Multi-line scale-out (GTM §3) multiplies this per additional line onboarded; see
 [`GTM_ROADMAP.md`](GTM_ROADMAP.md) (#46) for the pacing.
