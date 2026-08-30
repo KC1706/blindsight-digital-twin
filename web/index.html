@@ -53,6 +53,10 @@
         cursor:pointer;font-weight:600;margin-top:10px;margin-right:8px}
   button.override{background:transparent;color:var(--muted);border:1px solid var(--line);
         border-radius:7px;padding:8px 14px;cursor:pointer;margin-top:10px}
+  .applied{margin-top:10px;padding:10px 12px;border-radius:8px;font-size:13px;line-height:1.45}
+  .applied.ok{background:rgba(46,160,67,.13);border:1px solid var(--work);color:var(--text)}
+  .applied.over{background:rgba(210,153,34,.12);border:1px solid var(--block);color:var(--text)}
+  .applied b{color:var(--accent2)}
   .log{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted);
        background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px;margin-top:10px;
        max-height:90px;overflow:auto;white-space:pre-wrap}
@@ -308,8 +312,9 @@ function renderFloor(){
     rc.innerHTML=`<div class="rec"><div class="pill">driver: ${r.driver}</div>
     <div class="act">${r.action}</div>
     ${impact}
-    <button class="accept" onclick="logAction('ACCEPTED: '+${JSON.stringify(r.action)})">Accept</button>
-    <button class="override" onclick="logAction('OVERRIDE by supervisor — kept current plan')">Override</button>
+    <button class="accept" onclick="applyRec(true)">Accept</button>
+    <button class="override" onclick="applyRec(false)">Override</button>
+    <div id="rec-status"></div>
     <div class="log" id="auditlog">audit log:</div></div>`;}
   else rc.innerHTML='<div class="sub">No action needed — line is balanced this shift.</div>';
   const d=DATA.defect, dc=$('#defect');
@@ -321,6 +326,27 @@ function renderFloor(){
 }
 function logAction(m){const l=$('#auditlog'); if(l){const t=new Date().toLocaleTimeString();
   l.textContent+='\n['+t+'] '+m;}}
+
+function applyRec(accepted){
+  const r=DATA&&DATA.recommendation; if(!r) return;
+  const t=new Date().toLocaleTimeString();
+  const st=$('#rec-status');
+  if(accepted){
+    const impact = r.recovered
+      ? ` Projected effect: <b>${r.recovered.mean} ${r.metric||'units'}</b> (from counterfactual re-simulation).`
+      : '';
+    st.innerHTML=`<div class="applied ok">✓ Applied at ${t} — ${r.action}.${impact}
+      Written to the audit trail (the plant manager sees this decision). Blindsight is decision
+      support: nothing changes on the real line until a human carries this out.</div>`;
+    logAction('ACCEPTED: '+r.action);
+  } else {
+    st.innerHTML=`<div class="applied over">Override at ${t} — kept the current plan.
+      The recommendation was dismissed and logged for review.</div>`;
+    logAction('OVERRIDE — kept current plan ('+r.action+')');
+  }
+  document.querySelectorAll('#rec .accept,#rec .override').forEach(b=>{
+    b.disabled=true; b.style.opacity=.45; b.style.cursor='default';});
+}
 
 function renderPlant(){
   const f=DATA.forecast, cs=DATA.stations[f.constraint_station_id];
@@ -470,7 +496,7 @@ const TOUR=[
  {v:'floor',sel:'#live-card',t:'Live constraint — recursive filter',
   b:'A particle filter fuses the scan data into a live estimate every tick and updates as the shift plays — so when a station starts slipping (an operator swap, a tool drift) the constraint moves here within minutes, not at end of shift. The bars are each segment’s live load; the highlighted one is the current constraint, named down to the dark station even with no sensor on it.'},
  {v:'floor',sel:'#rec-card',t:'Recommended action',
-  b:'The system’s suggestion (e.g. move one operator to the constraint), how many cars it recovers, and its confidence. Click Accept or Override — every decision is written to the audit log underneath.'},
+  b:'The system’s suggestion for the situation (move an operator, recalibrate a tool, pace the surge), its projected effect, and confidence. Click <b>Accept</b> and a green confirmation appears showing the projected units recovered/contained and writing the decision to the audit trail; <b>Override</b> keeps the current plan and logs that instead. Blindsight is decision-support — nothing changes on the real line until a human carries it out.'},
  {v:'floor',sel:'#defect-card',t:'Defect containment',
   b:'When a tool drifts out of spec, this names how many cars were built during the bad window and how many are still on the line — so you can catch them before they ship.'},
  {v:'plant',sel:'#f-constraint',t:'What will choke the line',
