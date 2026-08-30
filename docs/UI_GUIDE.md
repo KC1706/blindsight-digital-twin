@@ -31,6 +31,7 @@ document is the written companion to that live tour.
 | **Units lost** | Cars lost over 2h, as a range | 80% band from the simulations — never a fake-exact number. |
 | **ETA** | Time until losses begin | From the rate mismatch between the constraint and takt. |
 | **Per-station cycle-time table** | Every station's estimated speed with error bars; dark rows highlighted; P(constraint) per station | Bar = estimate, shaded band = uncertainty. Dark stations are reconstructed from flow + scans with no sensor. |
+| **Mixed-model work content (per-variant)** | Per-variant service time at each station, and where a variant adds extra work (e.g. a sunroof on one trim) — validated vs ground truth | Variant-aware travel-time tomography recovers per-variant cycle times and localizes a variant-specific operation to the exact dark station, no sensor needed (`/api/variants`). |
 
 ## 💼 Leadership — "is it worth it, and what do we buy"
 
