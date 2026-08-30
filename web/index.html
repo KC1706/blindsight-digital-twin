@@ -125,6 +125,14 @@
       <span><span class="dot" style="background:var(--accent)"></span>vehicle (live)</span>
       <span id="clock" style="margin-left:auto"></span>
     </div>
+    <div class="card" id="live-card" style="margin-top:12px">
+      <h3>Live constraint — recursive filter (updates as the shift plays)</h3>
+      <div id="live-constraint" class="sub">warming up…</div>
+      <div id="live-segments" style="display:flex;gap:6px;margin-top:8px"></div>
+      <div class="footnote">A Rao-Blackwellized particle filter fuses scans into a live
+        per-segment posterior every tick and snaps to regime changes (an operator swap, a tool
+        drift) within minutes — the recursive counterpart to the shift cycle-time estimates.</div>
+    </div>
     <div class="grid cols-2" style="margin-top:16px">
       <div class="card" id="rec-card"><h3>Recommended action</h3><div id="rec"></div></div>
       <div class="card" id="defect-card"><h3>Defect containment</h3><div id="defect"></div></div>
@@ -181,7 +189,7 @@
 </main>
 <script>
 const MARGIN=250, SHIFTS=2, DAYS=250;
-let DATA=null, ws=null;
+let DATA=null, ws=null, LIVE=null;
 const $=s=>document.querySelector(s);
 const SCENARIOS={
   baseline:{label:'✅ Normal shift',
@@ -225,6 +233,7 @@ async function load(){
     ? `<b>${info.label}</b> — <span>${info.what}</span>`
     : '';
   DATA=await j('/api/analysis/'+name);
+  try{ LIVE=await j('/api/live_state/'+name); }catch(e){ LIVE=null; }
   drawStatic(); renderFloor(); renderPlant(); renderExec();
   connectLive(name);
 }
@@ -379,7 +388,33 @@ function connectLive(name){
       const x=pad+p*gap;
       return `<circle cx="${x}" cy="${y}" r="3" fill="var(--accent)" opacity="0.8"/>`;
     }).join('');
+    updateLive(fr.t_s);
   };
+}
+
+function updateLive(t_s){
+  if(!LIVE||!LIVE.frames.length) return;
+  // nearest live-state frame to the current playback time
+  let fr=LIVE.frames[0];
+  for(const f of LIVE.frames){ if(f.t_s<=t_s) fr=f; else break; }
+  const hot=fr.hot_segment, key=hot[0]+'-'+hot[1];
+  const dark=(LIVE.segment_dark[key]||[]);
+  const stns=(LIVE.segment_stations[key]||[]);
+  const where=dark.length?`dark station${dark.length>1?'s':''} ${dark.join(', ')}`:(stns[0]||'');
+  $('#live-constraint').innerHTML=`Live constraint: <b>segment S${hot[0]}–S${hot[1]}</b>`+
+    (where?` — likely at ${where}`:'')+` <span class="sub">(inferred from flow, no sensor there)</span>`;
+  const strip=$('#live-segments'); strip.innerHTML='';
+  const base=Math.min(...fr.segments.map(s=>s.mean));
+  const top=Math.max(...fr.segments.map(s=>s.mean));
+  fr.segments.forEach(s=>{
+    const isHot=(s.a===hot[0]&&s.b===hot[1]);
+    const load=(s.mean-base)/((top-base)||1);
+    const col=isHot?'var(--starve)':`rgba(120,160,255,${0.25+0.6*load})`;
+    strip.innerHTML+=`<div title="S${s.a}–S${s.b}: ${s.mean}s [${s.lo}–${s.hi}]"
+      style="flex:1;text-align:center;font-size:11px">
+      <div style="height:${8+40*load}px;background:${col};border-radius:3px"></div>
+      <span class="sub">S${s.a}</span></div>`;
+  });
 }
 /* ---------------- guided tour ---------------- */
 const TOUR=[

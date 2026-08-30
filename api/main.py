@@ -17,7 +17,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from engine.pipeline import analyze, analyze_variants, live_frames
+from engine.pipeline import analyze, analyze_variants, live_frames, live_state
 from engine.scenarios import available
 from engine.validate import build_report, value_of_information
 
@@ -33,6 +33,11 @@ def scenarios():
 @app.get("/api/analysis/{scenario}")
 def analysis(scenario: str):
     return analyze(scenario)
+
+
+@app.get("/api/live_state/{scenario}")
+def live_state_ep(scenario: str):
+    return live_state(scenario)
 
 
 @app.get("/api/variants")
