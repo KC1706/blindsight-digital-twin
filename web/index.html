@@ -442,6 +442,8 @@ const TOUR=[
   b:'Estimated time until you start losing cars — your window to act.'},
  {v:'plant',sel:'#cyc-body',t:'Every station’s speed — with error bars',
   b:'Each bar is the estimated cycle time; the lighter shaded band is the uncertainty. Amber rows are DARK stations reconstructed with NO sensor on them. The last column is each station’s probability of being the constraint.'},
+ {v:'plant',sel:'#variant-card',t:'Mixed-model work content — per variant',
+  b:'Real lines build several variants; some add work at specific stations (a sunroof on one trim). Blindsight recovers each variant’s service time per station from travel-time tomography and pins the extra operation to the exact DARK station — no sensor needed. Each row shows the per-variant cycle times; the summary calls out where a variant adds work, validated against ground truth.'},
  {v:'exec',sel:'#e-money',t:'The business case',
   b:'Estimated margin recovered per year if you act on the recommendation — the number leadership cares about.'},
  {v:'exec',sel:'#voi',t:'Which sensor to buy first',
