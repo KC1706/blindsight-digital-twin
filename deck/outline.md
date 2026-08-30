@@ -20,12 +20,15 @@ frames it.
 7. **Business** — retrofit-free, sub-month payback, "instrument these 3 first."
 8. **Ask** — the pilot.
 
-## Slide-by-slide (12 slides)
+## Slide-by-slide (13 slides + close)
+
+> Slide 3 has a full-bleed hero-animation companion (3b); the table below lists the 12 content
+> beats plus the demo runsheet.
 
 | # | Slide | One-line message | Proof source |
 |---|---|---|---|
 | 1 | Title | Blindsight — the line is the sensor | — |
-| 2 | The blind line | ~35% of stations are dark; the bottleneck hides there | `line.py`, DEMO Beat 0 |
+| 2 | The blind line | 1 in 4 stations dark (10/40); the bottleneck hides there | `line.py`, DEMO Beat 0 |
 | 3 | The insight | The line already knows — read it differently | `hero-animation.html`, README |
 | 4 | How it works | 5 moves on sensors you already have | PLAN §4, METHODS |
 | 5 | See the invisible | Dark cycle times with error bars — MAPE **3.3%** | VALIDATION.md |

@@ -16,6 +16,9 @@
     font-size:30px;color:var(--text)}
   .reveal .slides{text-align:left}
   .reveal section{background:var(--bg)}
+  /* fill the slide so the footer flows to the bottom (center:false doesn't stretch sections) */
+  .reveal .slides>section{display:flex;flex-direction:column;min-height:86vh}
+  .reveal .slides>section.present{display:flex}
   .reveal h1,.reveal h2,.reveal h3{color:var(--text);font-weight:800;text-transform:none;
     letter-spacing:-.01em;line-height:1.08;margin:0 0 .35em}
   .reveal h1{font-size:2.0em} .reveal h2{font-size:1.5em} .reveal h3{font-size:1.05em}
@@ -35,7 +38,7 @@
   .stat.good{color:var(--good)} .stat.warn{color:var(--warn)} .stat.pur{color:var(--purple2)}
   .stat .u{font-size:.4em;color:var(--dim);font-weight:600}
   .cap{font-size:.5em;color:var(--dim);margin-top:.5em;text-transform:uppercase;letter-spacing:.08em}
-  .foot{position:absolute;bottom:14px;left:40px;right:40px;display:flex;justify-content:space-between;
+  .foot{margin-top:auto;padding-top:1em;display:flex;justify-content:space-between;gap:20px;
     font-size:.42em;color:var(--dim);letter-spacing:.06em}
   .pill{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:999px;
     padding:3px 14px;font-size:.5em;color:var(--dim);margin:0 6px 6px 0}
@@ -56,6 +59,7 @@
   .demo-beat .d{font-size:.62em} .demo-beat .d small{color:var(--dim)}
   .demo-beat .v{color:var(--dim);font-size:.5em;white-space:nowrap}
   .center{text-align:center}
+  .reveal .slides>section.center{justify-content:center;align-items:center}
   .title-mark{width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,var(--purple),#5a00a0);
     display:flex;align-items:center;justify-content:center;font-weight:900;font-size:34px;margin-bottom:24px}
 </style>
@@ -80,7 +84,7 @@
   <h2>The line is half blind — where it matters most</h2>
   <div class="grid g3">
     <div class="card"><div class="stat pur">~40</div><div class="cap">stations, mixed-model line</div></div>
-    <div class="card accent"><div class="stat warn">~35%</div><div class="cap">dark — no sensor at all</div></div>
+    <div class="card accent"><div class="stat warn">1 in 4</div><div class="cap">stations dark — no sensor at all (10 of 40)</div></div>
     <div class="card"><div class="stat">2:00pm</div><div class="cap">when MES tells you it broke</div></div>
   </div>
   <p class="lead" style="margin-top:.8em">Robot cells are richly instrumented. Manual stations — where humans vary and the
@@ -167,12 +171,12 @@
     </div>
     <div class="card accent">
       <div class="stat warn">~15 <span class="u">units at risk / 2h</span></div>
-      <div class="cap" style="margin-top:.6em">band [10–19] · P(binding) = 1.0</div>
+      <div class="cap" style="margin-top:.6em">band [10–19] · P(binding) = 1.0 · <strong>~9 min</strong> median lead time</div>
       <p class="lead" style="margin-top:.8em">Then: <em>move one operator to S14</em> → recover units,
         confidence from paired counterfactual re-sims.</p>
     </div>
   </div>
-  <div class="foot"><span>rear-view MES would show this ~90 min later — after the loss</span><span>6</span></div>
+  <div class="foot"><span>~9 minutes of warning before the first unit is lost — where MES shows nothing until end-of-line audit</span><span>6</span></div>
 </section>
 
 <!-- 7 · LIVE & RECURSIVE -->
@@ -268,7 +272,7 @@
   <div class="kicker">Live demo · ~4 min on the real dashboard</div>
   <h2>See it happen — not on a slide</h2>
   <div style="margin-top:.2em">
-    <div class="demo-beat"><span class="t">0 · 15s</span><span class="d">The blind line <small>— ~35% grey, no sensor</small></span><span class="v">Floor view</span></div>
+    <div class="demo-beat"><span class="t">0 · 15s</span><span class="d">The blind line <small>— 10 of 40 grey, no sensor</small></span><span class="v">Floor view</span></div>
     <div class="demo-beat"><span class="t">1 · 45s</span><span class="d">See the invisible <small>— dark cycle times + error bars</small></span><span class="v">Floor · virtual sensing</span></div>
     <div class="demo-beat"><span class="t">2 · 45s</span><span class="d">The takt slip <small>— S14 fingered, 2h forecast</small></span><span class="v">Plant · takt_slip_s14</span></div>
     <div class="demo-beat"><span class="t">3 · 30s</span><span class="d">The recommendation <small>— move an operator; Accept / audit log</small></span><span class="v">Floor · prescribe</span></div>

@@ -1,6 +1,6 @@
 # Speaker notes & timing (#55)
 
-Voice: factual, unhurried, let the facts land. Total ≈ 10 min (5–6 slides + 4 min demo).
+Voice: factual, unhurried, let the facts land. Total ≈ 10 min (~5–6 min of slides + 4 min demo).
 Practice the transitions — the deck's only job is to set up the live demo.
 
 ---
@@ -10,8 +10,8 @@ The stations that most need watching are usually the ones nothing can see."
 
 **2 · The blind line (35s).** Tell the 9:14 story as a fact, not a pitch: *"At 9:14 a torque
 tool drifts 4% out of spec. No alarm. The line keeps moving. It's found at 2pm at end-of-line
-audit — by then hundreds of cars carry it."* Then: ~40 stations, ~35% dark, and the dark ones
-are exactly the manual stations where the bottleneck hides.
+audit — by then hundreds of cars carry it."* Then: ~40 stations, 1 in 4 dark (10 of 40), and the
+dark ones are exactly the manual stations where the bottleneck hides.
 
 **3 · The insight (40s).** The turn. *"You don't need new sensors. The line already knows."*
 Blocked/starved points at the constraint; travel times between scans are equations you solve
@@ -27,7 +27,8 @@ views, one model" — that's the demo structure.
 error bars actually contain the truth. We're accurate *and* honest about it."
 
 **6 · Forecast (30s).** takt_slip_s14. "No sensor on S14, yet we finger it and forecast ~15
-units at risk over two hours — 90 minutes before a rear-view dashboard would."
+units at risk over two hours — with about nine minutes of median lead time before the first
+unit is lost, while MES shows nothing until the 2pm audit."
 
 **7 · Live & recursive (25s).** "This isn't a hindsight report. The filter updates every tick
 and catches a regime change in about five minutes." (Merged this round — mention it's new.)
