@@ -1,0 +1,1168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Blindsight — DarkShield · AIC 2026</title>
+<style>
+  :root{
+    --bg:#0B0B10; --panel:#14141A; --line:#23232C;
+    --white:#fff; --dim:#8A8A96; --purple:#A100FF;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#000;color:#fff;
+    font:13px/1.4 Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased}
+  #app{display:flex;flex-direction:column;height:100%}
+  #stage{flex:1;display:flex;align-items:center;justify-content:center;background:#000;min-height:0}
+  canvas{max-width:100%;max-height:100%;display:block;background:var(--bg)}
+
+  #ui{background:#0e0e12;border-top:1px solid var(--line);padding:10px 14px 12px;flex:none}
+  .row{display:flex;align-items:center;gap:10px}
+  .row+.row{margin-top:9px}
+  button{background:#1b1b22;color:#ddd;border:1px solid #2c2c36;border-radius:5px;
+    padding:6px 11px;font:600 12px Arial,sans-serif;cursor:pointer}
+  button:hover{background:#25252e;color:#fff}
+  button.on{background:var(--purple);border-color:var(--purple);color:#fff}
+  #play{min-width:78px}
+  #time{font:600 13px ui-monospace,"SF Mono",Menlo,Consolas,monospace;color:#bbb;min-width:150px}
+  input[type=range]{flex:1;accent-color:var(--purple);height:22px}
+  select{background:#1b1b22;color:#ddd;border:1px solid #2c2c36;border-radius:5px;padding:5px 7px;font:600 12px Arial}
+  .chips{display:flex;gap:5px;flex-wrap:wrap}
+  .chip{background:#16161c;border:1px solid #262630;color:#8f8f9c;border-radius:4px;
+    padding:5px 8px;font:600 11px Arial;cursor:pointer;white-space:nowrap}
+  .chip:hover{color:#fff;border-color:#3a3a46}
+  .chip.active{background:var(--purple);border-color:var(--purple);color:#fff}
+  .hint{color:#5d5d6a;font-size:11px;margin-left:auto}
+  kbd{background:#1b1b22;border:1px solid #2c2c36;border-bottom-width:2px;border-radius:3px;
+    padding:1px 4px;font:600 10px ui-monospace,monospace;color:#9a9aa8}
+
+  body.rec #ui{display:none}
+  body.rec #stage{background:#000}
+  body.rec canvas{max-width:100vw;max-height:100vh}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage"><canvas id="c" width="1920" height="1080"></canvas></div>
+  <div id="ui">
+    <div class="row">
+      <button id="play">▶ Play</button>
+      <span id="time">00:00.00 / 02:48.00</span>
+      <input id="scrub" type="range" min="0" max="168" step="0.01" value="0">
+      <select id="speed">
+        <option value="0.25">0.25×</option><option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option><option value="2">2×</option>
+      </select>
+      <button id="rec">Record mode</button>
+    </div>
+    <div class="row">
+      <div class="chips" id="chips"></div>
+      <span class="hint">
+        <kbd>space</kbd> play · <kbd>←</kbd><kbd>→</kbd> 1s · <kbd>shift</kbd>+arrows 0.1s ·
+        <kbd>1</kbd>–<kbd>9</kbd>/<kbd>0</kbd> shot · <kbd>R</kbd> record · <kbd>F</kbd> fullscreen · <kbd>G</kbd> guides
+      </span>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ==========================================================================
+   BLINDSIGHT — assembly-line explainer animation
+   DarkShield · Accenture Innovation Challenge 2026 · Problem Statement 4
+
+   Everything you are likely to want to change lives in CONFIG below.
+   Total runtime is derived from SHOTS — edit a shot's a/b to retime.
+   ========================================================================== */
+
+const CONFIG = {
+  team:'DARKSHIELD',
+  idea:'Blindsight',
+
+  totalStations: 20,
+  darkStations:  [3,7,12,14,17,19],   // 1-based: stations with no sensor data
+  faultStation:  8,                    // torque tool drift
+  bottleneck:    14,                   // the constraint
+  donorStation:  12,                   // operator moved from here
+
+  taktSeconds:   60,
+  bottleneckCycle: 69,                 // 9s over takt
+
+  // Scenario arithmetic (derived from takt above — NOT external claims)
+  vehiclesAffected: 286,
+  vehiclesShipped:  60,
+  vehiclesLocated:  14,
+
+  inferredCycle: '58s',
+  inferredError: '± 6s',
+
+  forecastProb:    78,
+  forecastMinutes: 90,
+  lossUnits:       23,
+  recoverUnits:    19,
+
+  // Cited figure — Siemens/Senseye, "The True Cost of Downtime 2024" (verified in source PDF)
+  statHeadline: '$2.3 MILLION PER HOUR',
+  statSub:      'more than $600 a second',
+  statSource:   'Siemens / Senseye Predictive Maintenance · The True Cost of Downtime 2024',
+
+  scenarioNote: 'illustrative scenario · 60s takt',
+};
+
+/* ---------------------------------------------------------------- palette */
+const C = {
+  bg:'#0B0B10', panel:'#14141A', panelEdge:'#262630',
+  white:'#FFFFFF', dim:'#8A8A96', faint:'#4A4A55', ghost:'#2A2A34',
+  purple:'#A100FF', violet:'#7500C0',
+  amber:'#FFB000', red:'#E5484D', green:'#30A46C',
+};
+
+const W = 1920, H = 1080;
+const cv  = document.getElementById('c');
+const ctx = cv.getContext('2d');
+
+/* ------------------------------------------------------------------ maths */
+const clamp01 = x => x < 0 ? 0 : x > 1 ? 1 : x;
+const lerp  = (a,b,x) => a + (b-a)*x;
+const seg   = (x,a,b) => a === b ? (x >= b ? 1 : 0) : clamp01((x-a)/(b-a));
+const ease  = x => x < .5 ? 2*x*x : 1 - Math.pow(-2*x+2, 2)/2;
+const easeOut = x => 1 - Math.pow(1-x, 3);
+const easeIn  = x => x*x*x;
+const bell  = x => Math.sin(Math.PI * clamp01(x));       // 0 → 1 → 0
+const pulse = (t, hz) => 0.5 + 0.5*Math.sin(t*Math.PI*2*hz);
+
+// deterministic PRNG so scrubbing never changes what you see
+function mulberry32(seed){
+  return function(){
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let x = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    x = x + Math.imul(x ^ x >>> 7, 61 | x) ^ x;
+    return ((x ^ x >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+/* ------------------------------------------------------------- primitives */
+const FONT  = 'Arial, Helvetica, sans-serif';
+const MONO  = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+const hasLS = 'letterSpacing' in ctx;
+
+function txt(s, x, y, o = {}){
+  const { size=24, weight=400, color=C.white, align='left', baseline='alphabetic',
+          mono=false, ls=0, alpha=1 } = o;
+  if (alpha <= 0.001) return;
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  ctx.font = `${weight} ${size}px ${mono ? MONO : FONT}`;
+  if (hasLS && ls) ctx.letterSpacing = ls + 'px';
+  ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = baseline;
+  ctx.fillText(s, x, y);
+  ctx.restore();
+}
+
+function rrect(x, y, w, h, r){
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x, y, w, h, r);
+  else {
+    r = Math.min(r, w/2, h/2);
+    ctx.moveTo(x+r, y);
+    ctx.arcTo(x+w, y,   x+w, y+h, r);
+    ctx.arcTo(x+w, y+h, x,   y+h, r);
+    ctx.arcTo(x,   y+h, x,   y,   r);
+    ctx.arcTo(x,   y,   x+w, y,   r);
+    ctx.closePath();
+  }
+}
+
+function box(x, y, w, h, o = {}){
+  const { fill=null, stroke=null, lw=1.5, r=4, dash=null,
+          alpha=1, glow=null, glowSize=18 } = o;
+  if (alpha <= 0.001) return;
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  rrect(x, y, w, h, r);
+  if (fill){ ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke){
+    if (glow){ ctx.shadowColor = glow; ctx.shadowBlur = glowSize; }
+    if (dash) ctx.setLineDash(dash);
+    ctx.lineWidth = lw; ctx.strokeStyle = stroke; ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function line(x1, y1, x2, y2, o = {}){
+  const { color=C.faint, lw=1.5, dash=null, alpha=1 } = o;
+  if (alpha <= 0.001) return;
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  if (dash) ctx.setLineDash(dash);
+  ctx.lineWidth = lw; ctx.strokeStyle = color;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  ctx.restore();
+}
+
+function arrow(x1, y1, x2, y2, o = {}){
+  const { color=C.purple, lw=2.5, head=13, dash=null, alpha=1 } = o;
+  if (alpha <= 0.001) return;
+  const a = Math.atan2(y2-y1, x2-x1);
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = lw;
+  ctx.lineCap = 'round';
+  if (dash) ctx.setLineDash(dash);
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2 - Math.cos(a)*head*0.8, y2 - Math.sin(a)*head*0.8);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - Math.cos(a-0.42)*head, y2 - Math.sin(a-0.42)*head);
+  ctx.lineTo(x2 - Math.cos(a+0.42)*head, y2 - Math.sin(a+0.42)*head);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+// span marker with end ticks + centred label
+function bracket(x1, x2, y, label, o = {}){
+  const { color=C.dim, alpha=1, up=true, size=14, ls=4 } = o;
+  if (alpha <= 0.001) return;
+  const tick = up ? 9 : -9;
+  line(x1, y, x2, y, { color, lw:1.5, alpha });
+  line(x1, y, x1, y + tick, { color, lw:1.5, alpha });
+  line(x2, y, x2, y + tick, { color, lw:1.5, alpha });
+  txt(label, (x1+x2)/2, up ? y - 12 : y + 26,
+      { size, weight:700, color, align:'center', ls, alpha });
+}
+
+function clockStr(totalSeconds){
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const hh = String(Math.floor(s/3600) % 24).padStart(2,'0');
+  const mm = String(Math.floor(s/60) % 60).padStart(2,'0');
+  const ss = String(s % 60).padStart(2,'0');
+  return `${hh}:${mm}:${ss}`;
+}
+
+/* ------------------------------------------------------- the station line */
+const LINE = { n: CONFIG.totalStations, w: 56, h: 74, gap: 24, y: 500 };
+LINE.total = LINE.n*LINE.w + (LINE.n-1)*LINE.gap;
+LINE.x0    = (W - LINE.total)/2;
+LINE.railY = LINE.y + LINE.h/2 + 110;   // clears the station-number row
+
+const sx  = i => LINE.x0 + i*(LINE.w + LINE.gap);         // left edge
+const scx = i => sx(i) + LINE.w/2;                        // centre
+const isDark = i => CONFIG.darkStations.includes(i+1);    // i is 0-based
+
+function vehicle(x, y, o = {}){
+  const { color=C.faint, alpha=1, w=30, h=15, halted=false } = o;
+  if (alpha <= 0.001) return;
+  box(x - w/2, y - h/2, w, h, { fill:color, r:3, alpha });
+  box(x - w/2 + 5, y - h/2 - 5, w - 10, 6, { fill:color, r:2, alpha:alpha*0.75 });
+  if (halted) box(x - 2, y - h/2 - 16, 4, 8, { fill:C.amber, r:1, alpha });
+}
+
+/**
+ * Draw the 20-station row.
+ * state(i) may return:
+ *   dark      0..1  reveal as an un-sensored station (dashed, dimmed)
+ *   dot       0..1  reveal the purple "instrumented" dot
+ *   amber     0..1  bottleneck highlight
+ *   flash     0..1  red fault flash
+ *   ring      0..1  purple selection ring
+ *   glow      0..1  soft amber "affected" outline
+ *   occupied  bool  a vehicle sits on the rail here
+ *   halted    bool  that vehicle is blocked
+ *   faulty    bool  that vehicle carries the defect
+ *   label     str   text under the station (defaults to its number)
+ *   labelHot  0..1  brighten that label
+ */
+function drawRow(o = {}){
+  const { alpha=1, state=()=>({}), rail=true, y=LINE.y } = o;
+  if (alpha <= 0.001) return;
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+
+  if (rail){
+    line(LINE.x0 - 60, LINE.railY, LINE.x0 + LINE.total + 60, LINE.railY,
+         { color:C.ghost, lw:2 });
+  }
+
+  for (let i = 0; i < LINE.n; i++){
+    const s = state(i) || {};
+    const dark  = s.dark  || 0, dot = s.dot || 0;
+    const amber = s.amber || 0, flash = s.flash || 0;
+
+    const x = sx(i), yy = y;
+
+    // base plate
+    let fill   = `rgba(255,255,255,${lerp(0.045, 0.018, dark)})`;
+    let stroke = C.ghost, lw = 1.6, dash = null, glow = null;
+
+    if (dark > 0.5){ stroke = C.faint; dash = [5,5]; }
+    if (dot > 0.5 && dark < 0.5) stroke = `rgba(161,0,255,${lerp(0.25,0.75,dot)})`;
+    if (amber > 0){
+      stroke = C.amber; lw = 2.4; glow = 'rgba(255,176,0,0.55)';
+      fill = `rgba(255,176,0,${0.16*amber})`;
+    }
+    if (flash > 0){
+      stroke = C.red; lw = 2.6; glow = 'rgba(229,72,77,0.6)';
+      fill = `rgba(229,72,77,${0.22*flash})`;
+    }
+
+    box(x, yy, LINE.w, LINE.h, { fill, stroke, lw, dash, r:5, glow, glowSize:22 });
+
+    // affected-but-not-the-cause outline
+    if (s.glow) box(x-3, yy-3, LINE.w+6, LINE.h+6,
+                    { stroke:C.amber, lw:1.2, r:7, alpha:0.35*s.glow });
+    // selection ring
+    if (s.ring) box(x-6, yy-6, LINE.w+12, LINE.h+12,
+                    { stroke:C.purple, lw:2, r:9, alpha:s.ring,
+                      glow:'rgba(161,0,255,0.5)', glowSize:16 });
+
+    // instrumented sensor dot
+    if (dot > 0 && dark < 0.5){
+      ctx.save();
+      ctx.globalAlpha *= dot;
+      ctx.shadowColor = 'rgba(161,0,255,0.8)'; ctx.shadowBlur = 12;
+      ctx.fillStyle = C.purple;
+      ctx.beginPath(); ctx.arc(x + LINE.w/2, yy - 11, 4.5, 0, 7); ctx.fill();
+      ctx.restore();
+    }
+    // "no data" mark
+    if (dark > 0.5){
+      txt('—', x + LINE.w/2, yy - 7, { size:15, weight:700, color:C.faint,
+          align:'center', alpha:dark });
+    }
+
+    // station number
+    const hot = s.labelHot || 0;
+    txt(s.label !== undefined ? s.label : String(i+1),
+        x + LINE.w/2, yy + LINE.h + 22,
+        { size:12, weight:700, align:'center', mono:true, ls:0.5,
+          color: hot > 0.5 ? C.white : C.faint,
+          alpha: lerp(0.65, 1, hot) });
+
+    // vehicle on the rail
+    if (s.occupied){
+      vehicle(x + LINE.w/2, LINE.railY,
+        { color: s.faulty ? C.red : C.faint, halted: s.halted,
+          alpha: s.vehicleAlpha === undefined ? 1 : s.vehicleAlpha });
+    }
+  }
+  ctx.restore();
+}
+
+/* =============================== SHOTS =================================== */
+/* Each fn receives p — seconds elapsed *within* that shot.                  */
+
+/* --- 1 · COLD OPEN ------------------------------------------------------ */
+function shot1(p){
+  const t0 = 9*3600 + 14*60;
+  txt(clockStr(t0 + Math.floor(p)), W/2, 320,
+      { size:132, weight:700, color:C.white, align:'center', mono:true,
+        ls:3, alpha:seg(p,0.2,1.1) });
+  txt('LINE 3 · FINAL ASSEMBLY · TAKT 60s', W/2, 372,
+      { size:15, weight:700, color:C.dim, align:'center', ls:7,
+        alpha:seg(p,0.8,1.8) });
+
+  const fault = bell(seg(p, 7.4, 8.8));
+  drawRow({
+    alpha: seg(p, 2.2, 3.8),
+    state: i => ({
+      occupied: true,
+      flash:    i === CONFIG.faultStation - 1 ? fault : 0,
+      labelHot: i === CONFIG.faultStation - 1 ? seg(p,7.4,8.0) : 0,
+    })
+  });
+
+  txt(`Station ${CONFIG.faultStation} · torque tool drifts 4% out of spec`, W/2, 700,
+      { size:22, weight:700, color:C.red, align:'center', ls:0.5,
+        alpha: seg(p,7.8,8.6) * (1 - seg(p,11.2,12)) });
+  txt('No alarm.   No stop.   The line keeps moving.', W/2, 760,
+      { size:20, weight:400, color:C.dim, align:'center', ls:1.5,
+        alpha: seg(p,9.4,10.4) * (1 - seg(p,11.2,12)) });
+}
+
+/* --- 2 · TIME COLLAPSE -------------------------------------------------- */
+function shot2(p){
+  const a = 9*3600 + 14*60 + 12;
+  const b = 14*3600;
+  const q = ease(seg(p, 0.3, 7.4));
+
+  txt(clockStr(lerp(a, b, q)), W/2, 320,
+      { size:132, weight:700, color:C.white, align:'center', mono:true, ls:3 });
+  txt('END-OF-LINE AUDIT', W/2, 372,
+      { size:15, weight:700, color:C.red, align:'center', ls:7,
+        alpha: seg(p,6.6,7.6) });
+
+  drawRow({ state: () => ({}) });
+
+  // stream of defect-carrying vehicles
+  const span  = LINE.total + 620;
+  const flow  = 210*p + 1900*easeIn(seg(p, 0.3, 7.4))*p*0.18;
+  const rng   = mulberry32(7);
+  for (let i = 0; i < 46; i++){
+    const jitter = rng()*26;
+    const x = LINE.x0 - 300 + ((i*64 + jitter + flow) % span);
+    const outAlpha = 1 - seg(x, LINE.x0 + LINE.total + 40, LINE.x0 + LINE.total + 280);
+    vehicle(x, LINE.railY, { color:C.red, alpha: 0.9*outAlpha });
+  }
+
+  // counters
+  const cA = seg(p, 7.8, 8.7);
+  if (cA > 0){
+    box(W/2 - 340, 690, 680, 132,
+        { fill:'rgba(229,72,77,0.07)', stroke:'rgba(229,72,77,0.45)', r:8, alpha:cA });
+    txt(String(CONFIG.vehiclesAffected), W/2 - 170, 762,
+        { size:56, weight:700, color:C.red, align:'center', mono:true, alpha:cA });
+    txt('VEHICLES AFFECTED', W/2 - 170, 792,
+        { size:12, weight:700, color:C.dim, align:'center', ls:3, alpha:cA });
+    line(W/2, 706, W/2, 806, { color:'rgba(229,72,77,0.3)', alpha:cA });
+    txt(String(CONFIG.vehiclesShipped), W/2 + 170, 762,
+        { size:56, weight:700, color:C.red, align:'center', mono:true, alpha:cA });
+    txt('ALREADY SHIPPED', W/2 + 170, 792,
+        { size:12, weight:700, color:C.dim, align:'center', ls:3, alpha:cA });
+  }
+  txt(CONFIG.scenarioNote, W/2, 866,
+      { size:12, weight:400, color:C.faint, align:'center', ls:2, alpha:cA*0.9 });
+}
+
+/* --- 3 · THE RIPPLE ----------------------------------------------------- */
+function shot3(p){
+  const B  = CONFIG.bottleneck - 1;            // 0-based bottleneck index
+  const on = seg(p, 1.4, 2.6);                 // bottleneck engages
+  const wv = easeOut(seg(p, 2.2, 8.4));        // wave front, 0..1
+
+  const downSpan = LINE.n - 1 - B;             // stations to the right
+  const upSpan   = B - 6;                      // we show 6 upstream
+
+  drawRow({
+    state: i => {
+      const st = { occupied:true };
+      if (i === B){ st.amber = on; st.labelHot = on; st.occupied = true; }
+      else if (i > B){
+        const d = (i - B) / downSpan;
+        if (d <= wv*1.15){ st.occupied = false; st.glow = on; }
+      } else if (i >= B - 6){
+        const d = (B - i) / upSpan;
+        if (d <= wv*1.15){ st.halted = true; st.glow = on; }
+      }
+      return st;
+    }
+  });
+
+  const aStarve = seg(p, 4.2, 5.4);
+  const aBlock  = seg(p, 5.2, 6.4);
+  bracket(sx(B+1) - 8, sx(LINE.n-1) + LINE.w + 8, LINE.y - 54,
+          'STARVED', { color:C.amber, alpha:aStarve });
+  arrow(scx(B+2), LINE.y - 76, scx(LINE.n-2), LINE.y - 76,
+        { color:C.amber, alpha:aStarve*0.75, dash:[7,7], lw:2, head:11 });
+
+  bracket(sx(B-6) - 8, sx(B-1) + LINE.w + 8, LINE.y - 54,
+          'BLOCKED', { color:C.amber, alpha:aBlock });
+  arrow(scx(B-2), LINE.y - 76, scx(B-5), LINE.y - 76,
+        { color:C.amber, alpha:aBlock*0.75, lw:2, head:11 });
+
+  txt(`Station ${CONFIG.bottleneck}`, scx(B), LINE.y + LINE.h + 74,
+      { size:17, weight:700, color:C.amber, align:'center', ls:1, alpha:on });
+
+  // cycle-time comparison inset
+  const iA = seg(p, 10, 11.4);
+  if (iA > 0){
+    const bx = W/2 - 250, by = 800, bw = 500;
+    txt('CYCLE TIME', bx, by - 14,
+        { size:11, weight:700, color:C.dim, ls:4, alpha:iA });
+    const scale = 380 / CONFIG.bottleneckCycle;
+    box(bx, by, CONFIG.taktSeconds*scale, 20,
+        { fill:'rgba(255,255,255,0.10)', r:3, alpha:iA });
+    txt(`takt ${CONFIG.taktSeconds}s`, bx + CONFIG.taktSeconds*scale + 12, by + 15,
+        { size:13, weight:700, color:C.dim, mono:true, alpha:iA });
+    box(bx, by + 34, CONFIG.taktSeconds*scale, 20,
+        { fill:'rgba(255,255,255,0.10)', r:3, alpha:iA });
+    const over = (CONFIG.bottleneckCycle - CONFIG.taktSeconds)*scale;
+    box(bx + CONFIG.taktSeconds*scale, by + 34, over*easeOut(seg(p,11,12.2)), 20,
+        { fill:'rgba(255,176,0,0.85)', r:3, alpha:iA });
+    txt(`Station ${CONFIG.bottleneck}  ${CONFIG.bottleneckCycle}s  ( +9s )`,
+        bx + CONFIG.bottleneckCycle*scale + 12, by + 49,
+        { size:13, weight:700, color:C.amber, mono:true, alpha:seg(p,11.6,12.6) });
+  }
+}
+
+/* --- 4 · THE COUNT ------------------------------------------------------ */
+function shot4(p){
+  const B = CONFIG.bottleneck - 1;
+  const affected = [];
+  for (let i = B-6; i <= B-1; i++) affected.push(i);
+  for (let i = B+1; i < LINE.n; i++) affected.push(i);
+
+  const flashA = bell(seg(p, 0.6, 3.2)) * 0.9 + 0.35*pulse(p, 1.1);
+
+  drawRow({
+    state: i => {
+      if (i === B) return { amber:1, labelHot:1, occupied:true };
+      if (affected.includes(i)) return { glow: clamp01(flashA), labelHot:0.6,
+                                         occupied: i < B, halted: i < B };
+      return { occupied:true };
+    }
+  });
+
+  const n = Math.round(lerp(0, affected.length, easeOut(seg(p, 1.0, 3.0))));
+  txt('1', W/2 - 250, 780,
+      { size:96, weight:700, color:C.amber, align:'center', mono:true,
+        alpha:seg(p,0.6,1.4) });
+  txt('SLOW STATION', W/2 - 250, 816,
+      { size:12, weight:700, color:C.dim, align:'center', ls:4, alpha:seg(p,0.6,1.4) });
+  txt('→', W/2 - 60, 772,
+      { size:44, weight:400, color:C.faint, align:'center', alpha:seg(p,1.2,2) });
+  txt(String(n), W/2 + 190, 780,
+      { size:96, weight:700, color:C.amber, align:'center', mono:true,
+        alpha:seg(p,1.2,2) });
+  txt('STATIONS IDLED', W/2 + 190, 816,
+      { size:12, weight:700, color:C.dim, align:'center', ls:4, alpha:seg(p,1.2,2) });
+
+  // cited statistic — what an idle automotive line actually costs
+  const sA = seg(p, 5.2, 6.4);
+  if (sA > 0){
+    box(W/2 - 420, 872, 840, 100,
+        { fill:'rgba(255,176,0,0.06)', stroke:'rgba(255,176,0,0.45)', r:7, alpha:sA });
+    txt('AN IDLE AUTOMOTIVE LINE COSTS', W/2, 902,
+        { size:12, weight:700, color:C.dim, align:'center', ls:5, alpha:sA });
+    txt(CONFIG.statHeadline, W/2, 940,
+        { size:32, weight:700, color:C.amber, align:'center', ls:1, alpha:sA });
+    txt(CONFIG.statSub, W/2, 962,
+        { size:14, weight:400, color:C.dim, align:'center', ls:1,
+          alpha:seg(p, 6.2, 7.0) });
+    txt(CONFIG.statSource, W/2, 1000,
+        { size:11, weight:400, color:C.faint, align:'center', ls:1.5, alpha:sA*0.85 });
+  }
+}
+
+/* --- 5 · THE REAR-VIEW MIRROR ------------------------------------------- */
+function shot5(p){
+  const px = 410, py = 250, pw = 1100, ph = 560;
+  const a = seg(p, 0.2, 1.2);
+
+  box(px, py, pw, ph, { fill:C.panel, stroke:C.panelEdge, r:6, alpha:a });
+  box(px, py, pw, 46,  { fill:'#1B1B22', stroke:C.panelEdge, r:6, alpha:a });
+  txt('MES  //  LINE 3  —  THROUGHPUT  (units / hr)', px + 22, py + 30,
+      { size:14, weight:700, color:C.dim, ls:2, alpha:a });
+
+  // grid
+  const gx = px + 70, gy = py + 96, gw = pw - 130, gh = ph - 190;
+  for (let i = 0; i <= 4; i++){
+    const y = gy + gh*i/4;
+    line(gx, y, gx + gw, y, { color:'#20202A', lw:1, alpha:a });
+    txt(String(60 - i*15), gx - 14, y + 4,
+        { size:11, weight:400, color:C.faint, align:'right', mono:true, alpha:a });
+  }
+
+  // throughput trace with a cliff
+  const draw = easeOut(seg(p, 1.0, 3.0));
+  const rng = mulberry32(19);
+  const pts = [];
+  for (let i = 0; i <= 100; i++){
+    const f = i/100;
+    const base = f < 0.62 ? 0.28 : 0.28 + (Math.min(1, (f-0.62)/0.06))*0.56;
+    pts.push([gx + gw*f, gy + gh*(base + (rng()-0.5)*0.05)]);
+  }
+  ctx.save();
+  ctx.globalAlpha = a;
+  ctx.beginPath();
+  const upto = Math.max(1, Math.floor(pts.length*draw));
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < upto; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  ctx.strokeStyle = '#6E6E80'; ctx.lineWidth = 2.4; ctx.stroke();
+  ctx.restore();
+
+  // stop banner
+  const bA = seg(p, 3.0, 3.8);
+  if (bA > 0){
+    const bx = gx + gw*0.62;
+    line(bx, gy, bx, gy + gh, { color:C.red, lw:2, dash:[6,5], alpha:bA });
+    box(bx - 118, gy + gh + 16, 236, 34,
+        { fill:'rgba(229,72,77,0.14)', stroke:C.red, r:4, alpha:bA });
+    txt('LINE STOP — 09:47', bx, gy + gh + 39,
+        { size:14, weight:700, color:C.red, align:'center', ls:1.5, alpha:bA });
+  }
+
+  // the point: this is stale
+  const nA = seg(p, 5.8, 6.8);
+  txt('NOW   10:31', px + pw - 24, py + 92,
+      { size:34, weight:700, color:C.white, align:'right', mono:true, ls:1, alpha:nA });
+  txt('reported 44 minutes ago', px + pw - 24, py + 122,
+      { size:15, weight:700, color:C.amber, align:'right', ls:1,
+        alpha:seg(p, 7.6, 8.6) });
+
+  txt('A dashboard is a rear-view mirror.', W/2, 878,
+      { size:26, weight:700, color:C.dim, align:'center', ls:1,
+        alpha:seg(p, 9.6, 10.6) });
+}
+
+/* --- 6 · SENSOR REVEAL -------------------------------------------------- */
+function shot6(p){
+  drawRow({
+    state: i => {
+      const at = 1.0 + i*0.155;
+      const r  = seg(p, at, at + 0.35);
+      return isDark(i)
+        ? { dark:r, occupied:true }
+        : { dot:r,  occupied:true,
+            ring: (i === CONFIG.bottleneck-1) ? 0 : 0 };
+    }
+  });
+
+  txt('INSTRUMENTED', LINE.x0, LINE.y - 62,
+      { size:12, weight:700, color:C.purple, ls:4, alpha:seg(p,4.4,5.2) });
+  txt('NO SENSOR DATA', LINE.x0 + LINE.total, LINE.y - 62,
+      { size:12, weight:700, color:C.faint, align:'right', ls:4, alpha:seg(p,4.4,5.2) });
+
+  txt(`${CONFIG.darkStations.length} of ${LINE.n} stations report nothing.`, W/2, 760,
+      { size:38, weight:700, color:C.white, align:'center', ls:0.5,
+        alpha:seg(p, 5.6, 6.6) });
+
+  // and one of them is the bottleneck
+  const hA = seg(p, 7.4, 8.4);
+  if (hA > 0){
+    const B = CONFIG.bottleneck - 1;
+    box(sx(B) - 8, LINE.y - 8, LINE.w + 16, LINE.h + 16,
+        { stroke:C.amber, lw:2, r:9, alpha:hA,
+          glow:'rgba(255,176,0,0.5)', glowSize:18 });
+    txt('and one of them is your bottleneck', W/2, 812,
+        { size:24, weight:700, color:C.amber, align:'center', ls:0.5, alpha:hA });
+  }
+}
+
+/* --- 7 · IDENTITY ------------------------------------------------------- */
+function shot7(p){
+  const a = seg(p, 0.15, 0.7) * (1 - seg(p, 5.0, 6.2));
+  txt(CONFIG.team, W/2, 470,
+      { size:22, weight:700, color:C.dim, align:'center', ls:14, alpha:a });
+  line(W/2 - 60, 500, W/2 + 60, 500, { color:C.purple, lw:2, alpha:a });
+  txt(CONFIG.idea, W/2, 620,
+      { size:132, weight:700, color:C.white, align:'center', ls:-1, alpha:a });
+}
+
+/* --- 8 · THE MECHANISM (money shot) ------------------------------------- */
+const SEG7 = { n:7, w:132, h:172, gap:56, y:400 };
+SEG7.total = SEG7.n*SEG7.w + (SEG7.n-1)*SEG7.gap;
+SEG7.x0    = (W - SEG7.total)/2;
+const gx7  = i => SEG7.x0 + i*(SEG7.w + SEG7.gap);
+const gcx7 = i => gx7(i) + SEG7.w/2;
+
+function shot8(p){
+  const appear = seg(p, 0.2, 1.6);
+  const mid = 3;
+  const measured = ['61s','60s','59s', null, '60s','62s','59s'];
+  const nums = [11,12,13,14,15,16,17];
+
+  // kicker steps aside before the explanatory line arrives
+  txt('7 STATIONS · ONE WITH NO SENSOR', W/2, 250,
+      { size:13, weight:700, color:C.dim, align:'center', ls:6,
+        alpha: appear * (1 - seg(p, 9.0, 9.8)) });
+
+  for (let i = 0; i < SEG7.n; i++){
+    const dark = i === mid;
+    const x = gx7(i), st = seg(p, 0.3 + i*0.09, 1.0 + i*0.09);
+    box(x, SEG7.y, SEG7.w, SEG7.h, {
+      fill: dark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)',
+      stroke: dark ? C.faint : 'rgba(161,0,255,0.6)',
+      dash: dark ? [6,6] : null, lw:2, r:8, alpha:st
+    });
+    if (!dark){
+      ctx.save();
+      ctx.globalAlpha = st;
+      ctx.shadowColor = 'rgba(161,0,255,0.8)'; ctx.shadowBlur = 14;
+      ctx.fillStyle = C.purple;
+      ctx.beginPath(); ctx.arc(x + SEG7.w/2, SEG7.y - 18, 6, 0, 7); ctx.fill();
+      ctx.restore();
+    }
+    txt(String(nums[i]), x + SEG7.w/2, SEG7.y + SEG7.h + 30,
+        { size:16, weight:700, mono:true, align:'center',
+          color: dark ? C.white : C.faint, alpha:st });
+
+    // measured values, solid, no error bar
+    if (!dark && measured[i]){
+      txt(measured[i], x + SEG7.w/2, SEG7.y + SEG7.h/2 + 9,
+          { size:26, weight:700, mono:true, align:'center', color:C.white,
+            alpha: st*0.9 });
+      txt('MEASURED', x + SEG7.w/2, SEG7.y + SEG7.h/2 + 34,
+          { size:9, weight:700, align:'center', color:C.faint, ls:2, alpha:st*0.8 });
+    }
+  }
+
+  // move 1 — the unknown
+  const qA = seg(p, 1.8, 2.6) * (1 - seg(p, 14.0, 15.0));
+  txt('?', gcx7(mid), SEG7.y + SEG7.h/2 + 26,
+      { size:86, weight:700, align:'center', color:C.faint, alpha:qA });
+
+  // move 2 — converging signatures
+  const lA = seg(p, 6.0, 7.6), rA = seg(p, 7.4, 9.0);
+  const ay = SEG7.y - 78;
+  arrow(gcx7(0), ay, gcx7(mid) - 46, ay,
+        { color:C.purple, alpha:lA, lw:3, head:15 });
+  txt('BLOCKED SIGNATURE', gcx7(1), ay - 22,
+      { size:14, weight:700, color:C.purple, align:'center', ls:3, alpha:lA });
+  arrow(gcx7(6), ay, gcx7(mid) + 46, ay,
+        { color:C.purple, alpha:rA, lw:3, head:15 });
+  txt('STARVED SIGNATURE', gcx7(5), ay - 22,
+      { size:14, weight:700, color:C.purple, align:'center', ls:3, alpha:rA });
+
+  txt('The boundary between them locates the constraint.', W/2, 252,
+      { size:19, weight:400, color:C.dim, align:'center', ls:1,
+        alpha: seg(p, 9.9, 10.9) * (1 - seg(p, 13.6, 14.4)) });
+
+  // move 3 — resolve to an inferred value with error bars
+  const resolve = seg(p, 14.4, 16.2);
+  if (resolve > 0){
+    txt(CONFIG.inferredCycle, gcx7(mid), SEG7.y + SEG7.h/2 + 4,
+        { size:34, weight:700, mono:true, align:'center', color:C.purple,
+          alpha:resolve });
+    txt(CONFIG.inferredError, gcx7(mid), SEG7.y + SEG7.h/2 + 34,
+        { size:20, weight:700, mono:true, align:'center', color:C.purple,
+          alpha:resolve });
+
+    // confidence band under the line
+    const cy = SEG7.y + SEG7.h + 92, halfW = 150*resolve;
+    box(gcx7(mid) - halfW, cy - 11, halfW*2, 22,
+        { fill:'rgba(161,0,255,0.22)', r:4, alpha:resolve });
+    line(gcx7(mid) - halfW, cy, gcx7(mid) + halfW, cy,
+         { color:'rgba(161,0,255,0.6)', lw:1.5, alpha:resolve });
+    line(gcx7(mid), cy - 16, gcx7(mid), cy + 16, { color:C.purple, lw:3, alpha:resolve });
+
+    box(gcx7(mid) - 66, cy + 34, 132, 28,
+        { fill:'rgba(161,0,255,0.14)', stroke:C.purple, r:4,
+          alpha:seg(p, 16.0, 17.0) });
+    txt('INFERRED', gcx7(mid), cy + 53,
+        { size:12, weight:700, color:C.purple, align:'center', ls:3,
+          alpha:seg(p, 16.0, 17.0) });
+
+    txt('Measured stations render solid.   Inferred stations carry error bars.',
+        W/2, 960,
+        { size:19, weight:400, color:C.dim, align:'center', ls:1,
+          alpha:seg(p, 18.2, 19.4) });
+  }
+}
+
+/* --- 9 · THE EQUATIONS -------------------------------------------------- */
+function shot9(p){
+  const A = 9, B = 19;                          // scan points (0-based)
+  drawRow({
+    alpha: seg(p, 0.1, 0.9) * (1 - seg(p, 11.4, 12.4)),
+    y: LINE.y,
+    state: i => ({
+      dark: isDark(i) ? 1 : 0,
+      dot:  isDark(i) ? 0 : 1,
+      ring: (i === A || i === B) ? 1 : 0,
+      labelHot: (i === A || i === B) ? 1 : 0,
+      occupied: false,
+    })
+  });
+
+  const travelA = seg(p, 0.9, 1.4) * (1 - seg(p, 11.4, 12.4));
+  txt('SCAN POINT', scx(A), LINE.y - 62,
+      { size:11, weight:700, color:C.purple, align:'center', ls:3, alpha:travelA });
+  txt('SCAN POINT', scx(B), LINE.y - 62,
+      { size:11, weight:700, color:C.purple, align:'center', ls:3, alpha:travelA });
+
+  // one vehicle travels A → B while a timer runs
+  const tr = easeOut(seg(p, 1.4, 5.0));
+  if (travelA > 0){
+    const x = lerp(scx(A), scx(B), tr);
+    vehicle(x, LINE.railY, { color:C.white, alpha:travelA, w:34, h:17 });
+    txt(`${Math.round(lerp(0, 660, tr))} s`, x, LINE.railY + 40,
+        { size:20, weight:700, mono:true, color:C.white, align:'center', alpha:travelA });
+  }
+
+  // the equation
+  const eqA = seg(p, 5.2, 6.2) * (1 - seg(p, 11.4, 12.4));
+  txt('t₁₀  →  t₂₀   =   660 s', W/2, 800,
+      { size:44, weight:700, mono:true, color:C.white, align:'center',
+        ls:2, alpha:eqA });
+  txt('one vehicle · one equation · nine unknowns', W/2, 842,
+      { size:16, weight:400, color:C.dim, align:'center', ls:2,
+        alpha:seg(p, 6.4, 7.4) * (1 - seg(p, 11.4, 12.4)) });
+
+  // stacking rows
+  const stackA = seg(p, 8.0, 8.8) * (1 - seg(p, 11.6, 12.4));
+  if (stackA > 0){
+    const rng = mulberry32(3);
+    const shown = Math.floor(lerp(0, 22, easeOut(seg(p, 8.0, 11.4))));
+    const scroll = easeOut(seg(p, 8.0, 11.4)) * 260;
+    ctx.save(); ctx.globalAlpha = stackA;
+    for (let i = 0; i < shown; i++){
+      const a1 = 1 + Math.floor(rng()*9), a2 = a1 + 3 + Math.floor(rng()*9);
+      const v  = 180 + Math.floor(rng()*600);
+      const y  = 250 + i*26 - scroll;
+      if (y < 200 || y > 700) continue;
+      txt(`t${String(a1).padStart(2,'0')} → t${String(a2).padStart(2,'0')} = ${v} s`,
+          W/2, y,
+          { size:19, weight:400, mono:true, color:C.faint, align:'center',
+            alpha: 0.55 * (1 - Math.abs(y - 450)/320) });
+    }
+    ctx.restore();
+    const cnt = [5, 50, 500][Math.min(2, Math.floor(seg(p, 8.2, 11.4)*3))];
+    txt(`${cnt} vehicles`, W/2, 900,
+        { size:26, weight:700, mono:true, color:C.purple, align:'center',
+          ls:2, alpha:stackA });
+  }
+
+  // resolve into a solved column
+  const solveA = seg(p, 12.2, 13.2);
+  if (solveA > 0){
+    const vals = [['11','62s',0],['12','58s',0],['13','61s',0],
+                  ['14','69s',1],['15','60s',0],['16','59s',0]];
+    txt('SOLVED — PER-STATION CYCLE TIME', W/2, 330,
+        { size:13, weight:700, color:C.dim, align:'center', ls:5, alpha:solveA });
+    vals.forEach((v, i) => {
+      const a = solveA * seg(p, 12.4 + i*0.13, 12.9 + i*0.13);
+      const y = 380 + i*62;
+      box(W/2 - 240, y, 480, 48,
+          { fill: v[2] ? 'rgba(255,176,0,0.10)' : 'rgba(255,255,255,0.035)',
+            stroke: v[2] ? C.amber : C.ghost, r:5, alpha:a });
+      txt(`STATION ${v[0]}`, W/2 - 214, y + 31,
+          { size:15, weight:700, color: v[2] ? C.amber : C.dim, ls:2, alpha:a });
+      txt(v[1], W/2 + 214, y + 32,
+          { size:24, weight:700, mono:true, align:'right',
+            color: v[2] ? C.amber : C.white, alpha:a });
+    });
+  }
+}
+
+/* --- 10 · THE LINE ------------------------------------------------------ */
+function shot10(p){
+  const a = seg(p, 0.1, 0.55);
+  txt('The line is the sensor.', W/2, 560,
+      { size:96, weight:700, color:C.white, align:'center', ls:-1, alpha:a });
+  const u = easeOut(seg(p, 0.5, 1.4));
+  line(W/2 - 340*u, 610, W/2 + 340*u, 610, { color:C.purple, lw:3, alpha:a });
+}
+
+/* --- 11 · FORWARD SIMULATION -------------------------------------------- */
+function shot11(p){
+  const ax = 300, aw = 1320, base = 760, top = 300;
+  const nowX = ax + aw*0.30;
+
+  const a = seg(p, 0.2, 1.0);
+  line(ax, base, ax + aw, base, { color:C.ghost, lw:2, alpha:a });
+  txt('THROUGHPUT', ax, top - 26,
+      { size:12, weight:700, color:C.dim, ls:5, alpha:a });
+  txt('+2 h', ax + aw, base + 30,
+      { size:13, weight:700, color:C.faint, mono:true, align:'right', alpha:a });
+
+  // history
+  const rng = mulberry32(11);
+  const hist = [];
+  for (let i = 0; i <= 40; i++){
+    const f = i/40;
+    hist.push([lerp(ax, nowX, f), 430 + (rng()-0.5)*26]);
+  }
+  const hd = easeOut(seg(p, 0.6, 2.2));
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.beginPath();
+  const n = Math.max(2, Math.floor(hist.length*hd));
+  ctx.moveTo(hist[0][0], hist[0][1]);
+  for (let i = 1; i < n; i++) ctx.lineTo(hist[i][0], hist[i][1]);
+  ctx.strokeStyle = C.violet; ctx.lineWidth = 3; ctx.stroke();
+  ctx.restore();
+
+  // NOW marker
+  const nA = seg(p, 1.8, 2.6);
+  line(nowX, top - 10, nowX, base, { color:C.white, lw:2, dash:[7,6], alpha:nA*0.7 });
+  txt('NOW', nowX, top - 26,
+      { size:13, weight:700, color:C.white, align:'center', ls:4, alpha:nA });
+
+  // the fan of projections
+  const fA = seg(p, 2.8, 4.0);
+  const grow = easeOut(seg(p, 2.8, 7.0));
+  if (fA > 0){
+    ctx.save();
+    ctx.globalAlpha = fA*0.30;
+    ctx.strokeStyle = C.purple; ctx.lineWidth = 1.4;
+    for (let k = 0; k < 44; k++){
+      const r = mulberry32(100 + k);
+      let y = 430, drift = (r() - 0.35)*1.9;
+      ctx.beginPath(); ctx.moveTo(nowX, y);
+      const steps = Math.max(2, Math.floor(46*grow));
+      for (let i = 1; i <= steps; i++){
+        const f = i/46;
+        y = 430 + f*f*150*drift + (r()-0.5)*20*f;
+        ctx.lineTo(lerp(nowX, ax+aw, f), y);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // threshold + the call
+  const tA = seg(p, 6.4, 7.4);
+  line(ax, 560, ax + aw, 560, { color:C.amber, lw:1.5, dash:[8,6], alpha:tA*0.55 });
+  txt('CONSTRAINT THRESHOLD', ax + aw, 552,
+      { size:11, weight:700, color:C.amber, align:'right', ls:3, alpha:tA*0.8 });
+
+  const mA = seg(p, 7.6, 8.6);
+  const mx = lerp(nowX, ax+aw, 0.62);
+  if (mA > 0){
+    ctx.save(); ctx.globalAlpha = mA;
+    ctx.fillStyle = C.amber;
+    ctx.shadowColor = 'rgba(255,176,0,0.8)'; ctx.shadowBlur = 18;
+    ctx.beginPath(); ctx.arc(mx, 560, 8, 0, 7); ctx.fill();
+    ctx.restore();
+    box(mx - 230, 596, 460, 76,
+        { fill:'rgba(255,176,0,0.09)', stroke:C.amber, r:6, alpha:mA });
+    txt(`Station ${CONFIG.bottleneck} constrains`, mx, 626,
+        { size:21, weight:700, color:C.amber, align:'center', alpha:mA });
+    txt(`${CONFIG.forecastProb}% probability   ·   +${CONFIG.forecastMinutes} min`,
+        mx, 654,
+        { size:15, weight:700, color:C.dim, align:'center', mono:true, ls:1, alpha:mA });
+  }
+
+  txt('500 Monte Carlo runs, seeded from actual current WIP.', W/2, 900,
+      { size:20, weight:400, color:C.dim, align:'center', ls:1,
+        alpha:seg(p, 9.8, 11.0) });
+  txt('We model queueing dynamics — not photoreal geometry.', W/2, 940,
+      { size:17, weight:400, color:C.faint, align:'center', ls:1,
+        alpha:seg(p, 11.6, 12.8) });
+}
+
+/* --- 12 · THE DECISION -------------------------------------------------- */
+function shot12(p){
+  const cardA = seg(p, 0.2, 1.1) * (1 - seg(p, 7.2, 8.0));
+  if (cardA > 0){
+    const cx = W/2 - 560, cy = 300, cw = 1120, ch = 330;
+    box(cx, cy, cw, ch, { fill:'rgba(255,255,255,0.035)', stroke:C.panelEdge,
+                          r:8, alpha:cardA });
+    box(cx, cy, 7, ch, { fill:C.purple, r:3, alpha:cardA });
+
+    txt('RECOMMENDATION', cx + 46, cy + 52,
+        { size:12, weight:700, color:C.purple, ls:5, alpha:cardA });
+    txt(`Station ${CONFIG.bottleneck} becomes your constraint in ${CONFIG.forecastMinutes} minutes`,
+        cx + 46, cy + 118,
+        { size:38, weight:700, color:C.white, ls:-0.3, alpha:cardA });
+
+    txt('PROJECTED LOSS', cx + 46, cy + 186,
+        { size:12, weight:700, color:C.dim, ls:4, alpha:seg(p,1.4,2.2)*cardA });
+    txt(`${CONFIG.lossUnits} units`, cx + 46, cy + 232,
+        { size:38, weight:700, color:C.amber, mono:true, alpha:seg(p,1.4,2.2)*cardA });
+
+    line(cx + 330, cy + 168, cx + 330, cy + 250,
+         { color:C.panelEdge, alpha:seg(p,2.2,3.0)*cardA });
+
+    txt('ACTION', cx + 380, cy + 186,
+        { size:12, weight:700, color:C.dim, ls:4, alpha:seg(p,2.4,3.2)*cardA });
+    txt(`Move one operator from Station ${CONFIG.donorStation}`, cx + 380, cy + 226,
+        { size:26, weight:700, color:C.white, alpha:seg(p,2.4,3.2)*cardA });
+
+    const rA = seg(p, 3.6, 4.6)*cardA;
+    txt('→', cx + 46, cy + 296,
+        { size:22, weight:700, color:C.green, alpha:rA });
+    txt(`recover ${CONFIG.recoverUnits} of them`, cx + 84, cy + 296,
+        { size:26, weight:700, color:C.green, alpha:rA });
+
+    txt('A decision, not a dashboard.', W/2, 720,
+        { size:22, weight:400, color:C.dim, align:'center', ls:1,
+          alpha:seg(p, 5.4, 6.4)*cardA });
+  }
+
+  // defect containment — the visual rhyme with shot 2
+  const conA = seg(p, 8.2, 9.2);
+  if (conA > 0){
+    const rng = mulberry32(23);
+    const spots = [2,4,5,8,9,11,13,15,16,18];
+    drawRow({
+      alpha: conA,
+      state: i => ({ occupied: spots.includes(i), faulty: true,
+                     ring: spots.includes(i) ? seg(p, 9.4 + spots.indexOf(i)*0.06,
+                                                   9.9 + spots.indexOf(i)*0.06) : 0 })
+    });
+    txt('SAME VEHICLES.  NOW LOCATED.', W/2, 300,
+        { size:13, weight:700, color:C.dim, align:'center', ls:6, alpha:conA });
+    txt(`${CONFIG.vehiclesLocated} vehicles  ·  located`, W/2, 820,
+        { size:40, weight:700, color:C.green, align:'center', ls:0.5,
+          alpha:seg(p, 10.4, 11.4) });
+    txt('intercepted at the next repair bay — not at the dealer', W/2, 866,
+        { size:18, weight:400, color:C.dim, align:'center', ls:1,
+          alpha:seg(p, 11.0, 12.0) });
+  }
+}
+
+/* --- 13 · CLOSE --------------------------------------------------------- */
+function shot13(p){
+  const rowA = seg(p, 0.2, 1.0) * (1 - seg(p, 4.4, 5.2));
+  const priority = [12, 14, 17];   // 1-based: instrument these first
+  if (rowA > 0){
+    drawRow({
+      alpha: rowA,
+      state: i => {
+        const dark = isDark(i);
+        const pi = priority.indexOf(i+1);
+        return {
+          dark: dark ? 1 : 0,
+          dot:  dark ? 0 : 1,
+          ring: pi >= 0 ? seg(p, 1.4 + pi*0.3, 2.0 + pi*0.3) : 0,
+          labelHot: pi >= 0 ? 1 : 0,
+          occupied: false,
+        };
+      }
+    });
+    txt('INSTRUMENT THESE THREE FIRST', W/2, 740,
+        { size:26, weight:700, color:C.purple, align:'center', ls:4,
+          alpha:seg(p, 2.6, 3.4)*rowA });
+    txt('highest inference uncertainty × highest bottleneck probability', W/2, 782,
+        { size:17, weight:400, color:C.dim, align:'center', ls:1,
+          alpha:seg(p, 3.0, 3.8)*rowA });
+  }
+
+  const nA = seg(p, 5.4, 6.2) * (1 - seg(p, 8.4, 9.2));
+  txt('No retrofit.   No new sensors.', W/2, 540,
+      { size:76, weight:700, color:C.white, align:'center', ls:-0.5, alpha:nA });
+  txt('Just the line, finally telling you what it already knows.', W/2, 610,
+      { size:24, weight:400, color:C.dim, align:'center', ls:1,
+        alpha:seg(p, 6.2, 7.2) * (1 - seg(p, 8.4, 9.2)) });
+
+  const eA = seg(p, 9.4, 10.2);
+  txt(CONFIG.team, W/2, 520,
+      { size:20, weight:700, color:C.dim, align:'center', ls:14, alpha:eA });
+  line(W/2 - 50, 548, W/2 + 50, 548, { color:C.purple, lw:2, alpha:eA });
+  txt(CONFIG.idea, W/2, 640,
+      { size:110, weight:700, color:C.white, align:'center', ls:-1, alpha:eA });
+}
+
+/* =============================== TIMELINE ================================ */
+const SHOTS = [
+  { n:1,  a:0,   b:12,  name:'Cold open',     fn:shot1,  fin:0.6, fout:0.5 },
+  { n:2,  a:12,  b:22,  name:'Time collapse', fn:shot2,  fin:0.5, fout:0.5 },
+  { n:3,  a:22,  b:40,  name:'Ripple',        fn:shot3,  fin:0.5, fout:0.4 },
+  { n:4,  a:40,  b:52,  name:'The count',     fn:shot4,  fin:0.4, fout:0.5 },
+  { n:5,  a:52,  b:65,  name:'Rear-view',     fn:shot5,  fin:0.5, fout:0.5 },
+  { n:6,  a:65,  b:75,  name:'Sensor reveal', fn:shot6,  fin:0.5, fout:0.4 },
+  { n:7,  a:75,  b:82,  name:'Identity',      fn:shot7,  fin:0.0, fout:0.0 },
+  { n:8,  a:82,  b:105, name:'Mechanism ★',   fn:shot8,  fin:0.4, fout:0.5 },
+  { n:9,  a:105, b:120, name:'Equations',     fn:shot9,  fin:0.4, fout:0.4 },
+  { n:10, a:120, b:125, name:'The line',      fn:shot10, fin:0.0, fout:0.5 },
+  { n:11, a:125, b:142, name:'Forecast',      fn:shot11, fin:0.5, fout:0.4 },
+  { n:12, a:142, b:155, name:'Decision',      fn:shot12, fin:0.4, fout:0.4 },
+  { n:13, a:155, b:168, name:'Close',         fn:shot13, fin:0.4, fout:1.2 },
+];
+const DURATION = SHOTS[SHOTS.length-1].b;
+
+let t = 0, playing = false, speed = 1, guides = false, last = 0;
+
+function render(){
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle = C.bg;
+  ctx.fillRect(0,0,W,H);
+
+  const s = SHOTS.find(s => t >= s.a && t < s.b) || SHOTS[SHOTS.length-1];
+  const p = t - s.a;
+  const a = (s.fin ? seg(p, 0, s.fin) : 1) *
+            (s.fout ? 1 - seg(p, (s.b - s.a) - s.fout, s.b - s.a) : 1);
+
+  ctx.save();
+  ctx.globalAlpha = a;
+  s.fn(p);
+  ctx.restore();
+
+  if (guides){
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0,255,180,0.28)'; ctx.lineWidth = 1;
+    ctx.strokeRect(96, 54, W-192, H-108);              // title safe
+    ctx.strokeRect(48, 27, W-96, H-54);                // action safe
+    ctx.beginPath();
+    ctx.moveTo(W/2, 0); ctx.lineTo(W/2, H);
+    ctx.moveTo(0, H/2); ctx.lineTo(W, H/2);
+    ctx.strokeStyle = 'rgba(0,255,180,0.14)'; ctx.stroke();
+    ctx.restore();
+    txt(`SHOT ${s.n} · ${s.name} · p=${p.toFixed(2)}s`, 108, 96,
+        { size:16, weight:700, color:'rgba(0,255,180,0.7)', mono:true });
+  }
+}
+
+/* ================================== UI =================================== */
+const $play  = document.getElementById('play');
+const $scrub = document.getElementById('scrub');
+const $time  = document.getElementById('time');
+const $speed = document.getElementById('speed');
+const $rec   = document.getElementById('rec');
+const $chips = document.getElementById('chips');
+
+$scrub.max = DURATION;
+
+SHOTS.forEach(s => {
+  const b = document.createElement('button');
+  b.className = 'chip';
+  b.textContent = `${s.n} · ${s.name}`;
+  b.onclick = () => { setT(s.a); };
+  b.dataset.n = s.n;
+  $chips.appendChild(b);
+});
+
+const fmt = x => {
+  const m = Math.floor(x/60), s = Math.floor(x%60), f = Math.floor((x%1)*100);
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(f).padStart(2,'0')}`;
+};
+
+function syncUI(){
+  $scrub.value = t;
+  $time.textContent = `${fmt(t)} / ${fmt(DURATION)}`;
+  const cur = SHOTS.find(s => t >= s.a && t < s.b) || SHOTS[SHOTS.length-1];
+  [...$chips.children].forEach(c =>
+    c.classList.toggle('active', Number(c.dataset.n) === cur.n));
+}
+
+function setT(v){
+  t = Math.max(0, Math.min(DURATION, v));
+  render(); syncUI();
+}
+
+$play.onclick = () => {
+  playing = !playing;
+  $play.textContent = playing ? '❚❚ Pause' : '▶ Play';
+  $play.classList.toggle('on', playing);
+  if (playing && t >= DURATION - 0.01) t = 0;
+  last = performance.now();
+};
+$scrub.oninput = () => { playing = false; $play.textContent = '▶ Play';
+                         $play.classList.remove('on'); setT(Number($scrub.value)); };
+$speed.onchange = () => { speed = Number($speed.value); };
+$rec.onclick = () => {
+  document.body.classList.toggle('rec');
+  $rec.classList.toggle('on', document.body.classList.contains('rec'));
+};
+
+addEventListener('keydown', e => {
+  const step = e.shiftKey ? 0.1 : 1;
+  if (e.code === 'Space'){ e.preventDefault(); $play.click(); }
+  else if (e.key === 'ArrowRight'){ e.preventDefault(); playing = false;
+    $play.textContent='▶ Play'; $play.classList.remove('on'); setT(t + step); }
+  else if (e.key === 'ArrowLeft'){ e.preventDefault(); playing = false;
+    $play.textContent='▶ Play'; $play.classList.remove('on'); setT(t - step); }
+  else if (e.key.toLowerCase() === 'r'){ $rec.click(); }
+  else if (e.key.toLowerCase() === 'g'){ guides = !guides; render(); }
+  else if (e.key.toLowerCase() === 'f'){
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen();
+  }
+  else if (/^[0-9]$/.test(e.key)){
+    const idx = e.key === '0' ? 9 : Number(e.key) - 1;
+    if (SHOTS[idx]) setT(SHOTS[idx].a);
+  }
+});
+
+function loop(now){
+  if (playing){
+    const dt = Math.min(0.1, (now - last)/1000);
+    last = now;
+    t += dt*speed;
+    if (t >= DURATION){ t = DURATION; playing = false;
+      $play.textContent = '▶ Play'; $play.classList.remove('on'); }
+    render(); syncUI();
+  }
+  requestAnimationFrame(loop);
+}
+
+// wait for fonts so the first paint isn't a fallback face
+(document.fonts ? document.fonts.ready : Promise.resolve()).then(() => {
+  render(); syncUI();
+});
+requestAnimationFrame(t0 => { last = t0; loop(t0); });
+</script>
+</body>
+</html>

@@ -22,3 +22,7 @@ data/generated/
 
 # Notebooks
 .ipynb_checkpoints/
+
+# deck fallback screen recordings (large binaries)
+deck/assets/fallback-*.mp4
+*.mov
