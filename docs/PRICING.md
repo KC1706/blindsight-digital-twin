@@ -22,17 +22,17 @@ Unit of sale is **per production line**, not per seat or per station — matches
 
 | Phase (`GTM_ROADMAP.md`) | Tier | Price | Term | Rationale |
 |---|---|---|---|---|
-| **Phase 1 — PoC** | Not sold | $0 | N/A | This prototype; proves the mechanism before any commercial conversation |
-| **Phase 2 — Pilot** | Pilot | **Fixed fee, $40,000** one-time (implementation only, mid-point of `ROI_MODEL.md` §3 range) + **no license fee** during the pilot term | 3 months (matches `GTM_ROADMAP.md` Phase 2 duration) | Removes price as a pilot-adoption barrier; the ask is data access and a shadow-mode window, not budget approval |
-| **Phase 3 — Scale, Starter** | 1–3 lines | **$10,000/line/month** (SaaS, `ROI_MODEL.md` §3 Base) + $40,000 one-time implementation per new line | 12-month term | Matches ROI model's Base case exactly, so the payback claim in the pitch and the actual quote never diverge |
-| **Phase 3 — Scale, Multi-line** | 4–15 lines | **$8,500/line/month** (volume discount) | 12-month term, auto-renew | Implementation cost amortizes (shared integration work across lines at one site) |
-| **Phase 3 — Scale, Enterprise / multi-site** | 16+ lines or on-prem | **Custom** (starts at $8,000/line/month, `ROI_MODEL.md` Low bound) + on-prem premium | Multi-year | On-prem deployment ops cost recovered via the premium, not the per-line rate |
+| **Phase 1 — PoC** | Not sold | ₹0 | N/A | This prototype; proves the mechanism before any commercial conversation |
+| **Phase 2 — Pilot** | Pilot | **Fixed fee, ₹34 lakh** one-time (implementation only, mid-point of `ROI_MODEL.md` §3 range) + **no license fee** during the pilot term | 3 months (matches `GTM_ROADMAP.md` Phase 2 duration) | Removes price as a pilot-adoption barrier; the ask is data access and a shadow-mode window, not budget approval |
+| **Phase 3 — Scale, Starter** | 1–3 lines | **₹8.5 lakh/line/month** (SaaS, `ROI_MODEL.md` §3 Base) + ₹34 lakh one-time implementation per new line | 12-month term | Matches ROI model's Base case exactly, so the payback claim in the pitch and the actual quote never diverge |
+| **Phase 3 — Scale, Multi-line** | 4–15 lines | **₹7.2 lakh/line/month** (volume discount) | 12-month term, auto-renew | Implementation cost amortizes (shared integration work across lines at one site) |
+| **Phase 3 — Scale, Enterprise / multi-site** | 16+ lines or on-prem | **Custom** (starts at ₹6.8 lakh/line/month, `ROI_MODEL.md` Low bound) + on-prem premium | Multi-year | On-prem deployment ops cost recovered via the premium, not the per-line rate |
 
 ## 3. On-prem premium
 
-On-prem/VPC deployment adds a flat **+$5,000/month** platform fee (covers dedicated
+On-prem/VPC deployment adds a flat **+₹4.25 lakh/month** platform fee (covers dedicated
 infra/ops) on top of the per-line rate above. This keeps the per-line rate comparable across
-deployment modes so the ROI model's Low/Base/High license figures ($8k/$10k/$15k) still bound
+deployment modes so the ROI model's Low/Base/High license figures (₹6.8/₹8.5/₹12.75 lakh) still bound
 the total: the High end of that range is effectively "on-prem, small line count."
 
 ## 4. What's included at every tier
@@ -66,5 +66,5 @@ fact, because prospects will ask.
   case) — no reconciliation needed if either file changes; update both together.
 - → `GTM_ROADMAP.md`: pilot terms (§2) and phase pacing are the same document's source of truth
   for phase-by-phase commercial terms.
-- → Presentation (#54): quote the Starter tier ($10,000/line/month) as the headline number;
+- → Presentation (#54): quote the Starter tier (₹8.5 lakh/line/month) as the headline number;
   keep Pilot/Enterprise terms in the appendix for Q&A (#56).

@@ -182,7 +182,7 @@
       <div class="card"><h3>Recoverable units / shift</h3><div class="big warn" id="e-recover">—</div>
         <div class="sub">via the recommended action</div></div>
       <div class="card"><h3>Est. margin recovered / yr</h3><div class="big good" id="e-money">—</div>
-        <div class="sub" id="e-moneysub">assumes $250 margin/unit, 2 shifts/day</div></div>
+        <div class="sub" id="e-moneysub">assumes ₹21,250 margin/unit, 2 shifts/day</div></div>
     </div>
     <div class="grid cols-2" style="margin-top:16px">
       <div class="card"><h3>Instrument these first (value of information)</h3>
@@ -195,7 +195,7 @@
   </section>
 </main>
 <script>
-const MARGIN=250, SHIFTS=2, DAYS=250;
+const MARGIN=21250, SHIFTS=2, DAYS=250;   // ₹ contribution margin per unit (≈ $250 @ ₹85/USD)
 let DATA=null, ws=null, LIVE=null;
 const $=s=>document.querySelector(s);
 const SCENARIOS={
@@ -407,10 +407,10 @@ async function renderVariants(){
 function renderExec(){
   $('#e-thru').textContent=DATA.throughput;
   const r=DATA.recommendation;
-  const rec=r?r.recovered.mean:0;
+  const rec=(r&&r.recovered)?r.recovered.mean:0;
   $('#e-recover').textContent=rec;
-  const yr=Math.round(rec*SHIFTS*DAYS*MARGIN/1000);
-  $('#e-money').textContent='$'+yr+'k';
+  const cr=rec*SHIFTS*DAYS*MARGIN/1e7;              // total ₹/yr → crore
+  $('#e-money').textContent='₹'+cr.toFixed(1)+' Cr';
 }
 
 async function loadValidation(){
