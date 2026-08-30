@@ -23,9 +23,12 @@ Existing tools compound this:
 
 The cost of this blindness is not abstract. On a representative line (`docs/
 COST_OF_BLINDNESS.md`), three drivers — unmanaged bottleneck ripple, late defect detection, and
-reactive firefighting labor — sum to an estimated **≈ $16.5M/year (base case; range
-$3.4M–$64.6M)**, dominated by how long it takes to localize a shifting bottleneck without a
+reactive firefighting labor — sum to an estimated **≈ ₹140 Cr/year (base case; range
+₹29 Cr–₹549 Cr)**, dominated by how long it takes to localize a shifting bottleneck without a
 sensor on it.
+
+> All figures in Indian Rupees (INR); ₹1 Cr = 10 million, ₹1 lakh = 100 thousand. USD-based
+> model values (`docs/`) converted at **₹85/USD**.
 
 ## 2. Solution design
 
@@ -74,19 +77,19 @@ instrumenting only the top-VoI stations instead of all of them (`docs/ROI_MODEL.
 
 ```
 Value_yr1 = capture_rate × (Loss_ripple + Loss_defect) + deferred_capex_savings
-Base case: 45% × $16.5M + $88,000 ≈ $7.5M/year, one line, once ramped
+Base case: 45% × ₹140 Cr + ₹75 lakh ≈ ₹64 Cr/year, one line, once ramped
 ```
 
-**Cost.** Priced per line, per `docs/PRICING.md` Starter tier ($10,000/month) plus one-time
-implementation ($40,000) — Year-1 platform cost **$160,000 (base)**.
+**Cost.** Priced per line, per `docs/PRICING.md` Starter tier (₹8.5 lakh/month) plus one-time
+implementation (₹34 lakh) — Year-1 platform cost **₹1.36 Cr (base)**.
 
 **Payback.** `docs/ROI_MODEL.md` §4:
 
 | Scenario | Annual value (ramped) | Year-1 cost | Payback |
 |---|---|---|---|
-| Low | $0.85M | $121,000 | **~5 months** — the number to lead with; survives a skeptic halving every input |
-| Base | $7.5M | $160,000 | < 1 month (implementation cost alone) |
-| High | $39.0M | $240,000 | < 1 month |
+| Low | ₹7.2 Cr | ₹1.03 Cr | **~5 months** — the number to lead with; survives a skeptic halving every input |
+| Base | ₹64 Cr | ₹1.36 Cr | < 1 month (implementation cost alone) |
+| High | ₹332 Cr | ₹2.04 Cr | < 1 month |
 
 Multi-line scale-out multiplies this per additional line onboarded (`docs/ROI_MODEL.md` §5,
 `docs/GTM_ROADMAP.md` Phase 3). Success is tracked against `docs/PILOT_KPIS.md` — throughput
