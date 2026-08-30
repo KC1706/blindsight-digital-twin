@@ -54,6 +54,35 @@ def build_default_line() -> LineConfig:
     return LineConfig(stations=stations, takt_s=60.0, arrival_interval_s=40.0)
 
 
+# variant-specific extra operations (issue #28): each optioned variant adds work at ONE dark
+# station sitting alone in an interior checkpoint segment, so the extra work content is cleanly
+# localizable from travel-time tomography.
+#   A: base trim  (no extra work — the reference variant)
+#   B: sunroof fit at dark S19  (interior segment 16->21)
+#   C: trim option at dark S24  (interior segment 21->26)
+_VARIANT_OPS = {"A": {}, "B": {19: 18.0}, "C": {24: 12.0}}
+
+
+def build_variant_line(variant_ops: dict[str, dict[int, float]] | None = None,
+                       variant_content: dict[str, float] | None = None) -> LineConfig:
+    """The default line as a genuine mixed-model line (issue #28).
+
+    Variants carry different work content: ``variant_ops`` adds variant-specific operations
+    at specific stations (the realistic mixed-model case — a sunroof only on one trim), and
+    optional ``variant_content`` scales every station per variant. This is the structure the
+    variant-aware tomography must recover. Defaults to 3 variants; pass a dict to demo 2 or 4.
+    """
+    if variant_ops is None:
+        variant_ops = _VARIANT_OPS
+    line = build_default_line()
+    line.variants = list(variant_ops)
+    line.variant_ops = {v: dict(ops) for v, ops in variant_ops.items()}
+    line.variant_content = dict(variant_content or {})
+    # ease loading a little so free-flow vehicles exist and work content is observable
+    line.arrival_interval_s = 52.0
+    return line
+
+
 if __name__ == "__main__":  # quick manual check
     line = build_default_line()
     print(f"{line.name}: {len(line.stations)} stations, takt {line.takt_s}s")

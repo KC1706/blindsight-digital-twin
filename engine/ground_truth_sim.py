@@ -39,6 +39,8 @@ class SimResult:
     true_mean_cycle: dict[int, float]            # ground-truth realized mean service time
     throughput: int
     duration_s: float
+    # ground-truth realized mean service time per (station, variant) — for #28 scoring only
+    true_mean_cycle_variant: dict[int, dict[str, float]] = field(default_factory=dict)
 
     def summary_rows(self):
         rows = []
@@ -66,6 +68,10 @@ class GroundTruthSim:
         self.line = line or build_default_line()
         self.scenario = scenario or Scenario(name="baseline")
         self.rng = np.random.default_rng(self.scenario.seed)
+        # a separate stream for variant assignment so it doesn't perturb the service-time
+        # stream (keeps single-model scenarios byte-identical); random order decorrelates
+        # variant from queue position — otherwise round-robin would bias per-variant waits.
+        self._variant_rng = np.random.default_rng(self.scenario.seed + 991)
         n = len(self.line.stations)
         self.n = n
         # per-station live state
@@ -79,6 +85,8 @@ class GroundTruthSim:
         self.state_log = {i: {"working": 0, "blocked": 0, "starved": 0, "idle": 0}
                           for i in range(n)}
         self._cycles: list[list[float]] = [[] for _ in range(n)]
+        # per-variant realized service times (ground-truth-only; for #28 scoring)
+        self._cycles_v: list[dict[str, list[float]]] = [{} for _ in range(n)]
         self.checkpoints = set(self.line.checkpoints())
         # scenario deltas / flags applied over time
         self._drift_station: set[int] = set()
@@ -93,8 +101,15 @@ class GroundTruthSim:
         self._applied: set[int] = set()
 
     # ---- service-time sampling (lognormal with given mean & cv) ---- #
-    def _sample_cycle(self, i: int) -> int:
-        m, cv = self.mean[i], self.cv[i]
+    def _sample_cycle(self, i: int, variant: str | None = None) -> int:
+        # mixed-model work content: the same station takes longer/shorter per variant (#28)
+        # via a per-variant multiplier plus variant-specific extra operations at some stations.
+        if variant is not None:
+            m = self.mean[i] * self.line.variant_mult(variant) \
+                + self.line.variant_extra_s(variant, i)
+        else:
+            m = self.mean[i]
+        cv = self.cv[i]
         sigma = np.sqrt(np.log(1 + cv * cv))
         mu = np.log(max(m, 1e-6)) - 0.5 * sigma * sigma
         return max(1, int(round(float(np.exp(self.rng.normal(mu, sigma))))))
@@ -152,13 +167,15 @@ class GroundTruthSim:
                 if i in self.checkpoints:
                     veh.scans[i] = t
                     self.scans.append((veh.vin, i, t))
-                self.remaining[i] = self._sample_cycle(i)
+                self.remaining[i] = self._sample_cycle(i, veh.variant)
                 self._cycles[i].append(self.remaining[i])
+                self._cycles_v[i].setdefault(veh.variant, []).append(self.remaining[i])
                 self.working[i] = veh
             self.state_log[i][self._classify(i).value] += 1
         # arrivals into station 0's queue
         if t >= self._next_arrival and len(self.queue[0]) < self.cap[0]:
-            variant = self.line.variants[self._vin % len(self.line.variants)]
+            variant = self.line.variants[
+                int(self._variant_rng.integers(len(self.line.variants)))]
             veh = Vehicle(vin=self._vin, variant=variant, entry_s=t)
             self.vehicles.append(veh)
             self.queue[0].append(veh)
@@ -170,8 +187,11 @@ class GroundTruthSim:
             self.step(float(t))
         true_mean = {i: (float(np.mean(c)) if c else 0.0)
                      for i, c in enumerate(self._cycles)}
+        true_mean_v = {i: {v: float(np.mean(cs)) for v, cs in d.items() if cs}
+                       for i, d in enumerate(self._cycles_v)}
         return SimResult(
             line=self.line, scenario=self.scenario, vehicles=self.vehicles,
             scans=self.scans, state_log=self.state_log, true_mean_cycle=true_mean,
             throughput=self.throughput, duration_s=self.scenario.duration_s,
+            true_mean_cycle_variant=true_mean_v,
         )

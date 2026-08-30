@@ -14,11 +14,16 @@ import numpy as np
 from .defect_trace import trace_defects
 from .forecast import forecast, p_binding_by_station
 from .ground_truth_sim import GroundTruthSim
+from .line import build_variant_line
 from .observe import extract_observation
 from .prescribe import recommend
 from .root_cause import cusum_change_point
 from .scenarios import load_scenario
-from .virtual_sensor import blocked_starved_bottleneck, estimate_cycle_times
+from .virtual_sensor import (
+    blocked_starved_bottleneck,
+    estimate_cycle_times,
+    estimate_service_times_variant,
+)
 
 
 def _display_state(sid, instrumented, obs, bottleneck):
@@ -115,6 +120,57 @@ def analyze(scenario_name: str) -> dict:
                           "hi": rec.expected_units_recovered.hi}}),
         "defect": defect,
         "throughput": res.throughput,
+    }
+
+
+@lru_cache(maxsize=4)
+def analyze_variants(scenario_name: str = "baseline") -> dict:
+    """Mixed-model variant analysis (issue #28): recover per-variant service times on a line
+    where different variants carry different work content, and localize each variant-specific
+    operation to its (dark) station — all from travel-time tomography, no sensor required."""
+    line = build_variant_line()
+    res = GroundTruthSim(line=line, scenario=load_scenario(scenario_name)).run()
+    est = estimate_service_times_variant(extract_observation(res))
+    variants = list(line.variants)
+    dark = set(line.dark_stations())
+
+    stations = []
+    for s in line.stations:
+        e = est[s.id]
+        stations.append({
+            "id": s.id, "name": s.name, "instrumented": s.instrumented,
+            "dark": s.id in dark,
+            "per_variant": {v: {"mean": e.per_variant[v].mean,
+                                "lo": e.per_variant[v].lo, "hi": e.per_variant[v].hi}
+                            for v in variants},
+            "pooled": {"mean": e.pooled.mean, "lo": e.pooled.lo, "hi": e.pooled.hi},
+        })
+
+    # the "what did we find" story: each variant-specific operation, localized
+    findings = []
+    for v, ops in line.variant_ops.items():
+        for sid in ops:
+            here = est[sid].per_variant
+            base = min(here[o].mean for o in variants if o != v)
+            findings.append({
+                "variant": v, "station_id": sid, "station": line.stations[sid].name,
+                "extra_s": round(here[v].mean - base, 1),
+                "estimate_s": here[v].mean, "dark": sid in dark,
+            })
+
+    # honest accuracy scoring vs ground truth (dark stations only)
+    errs = [abs(est[j].per_variant[v].mean - res.true_mean_cycle_variant[j][v])
+            / res.true_mean_cycle_variant[j][v]
+            for j in dark for v in variants if v in res.true_mean_cycle_variant.get(j, {})]
+
+    return {
+        "scenario": {"name": res.scenario.name, "description": res.scenario.description},
+        "variants": variants,
+        "variant_ops": {v: {str(k): val for k, val in ops.items()}
+                        for v, ops in line.variant_ops.items()},
+        "stations": stations,
+        "findings": findings,
+        "dark_per_variant_mape": round(100 * float(np.mean(errs)), 1) if errs else None,
     }
 
 
