@@ -428,6 +428,8 @@ const TOUR=[
   b:'All 40 stations, left to right. Green = working, amber = blocked (work piling up behind it), red = starved (running dry in front). A white ring means the station is DARK — no sensor. Purple dots are cars flowing in real time. The ▼ marks the bottleneck.'},
  {v:'floor',sel:'.legend',t:'Legend & live clock',
   b:'What the colours mean, plus a live counter: minutes into the shift, cars built so far, and cars currently on the line.'},
+ {v:'floor',sel:'#live-card',t:'Live constraint — recursive filter',
+  b:'A particle filter fuses the scan data into a live estimate every tick and updates as the shift plays — so when a station starts slipping (an operator swap, a tool drift) the constraint moves here within minutes, not at end of shift. The bars are each segment’s live load; the highlighted one is the current constraint, named down to the dark station even with no sensor on it.'},
  {v:'floor',sel:'#rec-card',t:'Recommended action',
   b:'The system’s suggestion (e.g. move one operator to the constraint), how many cars it recovers, and its confidence. Click Accept or Override — every decision is written to the audit log underneath.'},
  {v:'floor',sel:'#defect-card',t:'Defect containment',

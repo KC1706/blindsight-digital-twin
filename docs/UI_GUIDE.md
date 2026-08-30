@@ -19,6 +19,7 @@ document is the written companion to that live tour.
 | **Headline banner** | The one thing to know: which station is the constraint, whether it has a sensor, cars at risk | Fuses the bottleneck localizer + forecast into one sentence. |
 | **Live line map (SVG)** | All 40 stations; colour = state; white ring = dark (no sensor); ▼ = bottleneck; purple dots = cars | Green working / amber blocked (piling up) / red starved (running dry). Dots animate over a websocket replaying real vehicle positions. |
 | **Legend + clock** | Colour key + live shift time, cars built, cars on line | Streamed live from the server. |
+| **Live constraint (recursive filter)** | The current constraint segment — named down to the dark station — plus a per-segment live-load strip, updating as the shift plays | A Rao-Blackwellized particle filter fuses scans into a live per-segment posterior **every tick** and snaps to a regime change (operator swap, tool drift) within minutes. Constraint found via the blocked→starved boundary, so it isn't fooled by blocking propagating upstream. Precomputed & cached (`/api/live_state`), so no stateful filter runs inside the socket loop. |
 | **Recommended action** | The suggested fix, cars recovered, confidence, Accept/Override | Found by re-simulating "what-if" operator moves; every click is written to the audit log. |
 | **Defect containment** | Cars affected by a drift and how many are still catchable | Uses scan timestamps to list the exact VINs processed during the drift window. |
 
@@ -44,7 +45,8 @@ document is the written companion to that live tour.
 ## Suggested first run
 
 1. Select **`takt_slip_s14`** → watch the map: Station 14 (white ring = dark) turns into the ▼ bottleneck with **no sensor on it**.
-2. Read the **recommendation**, click **Accept**, see the audit log.
-3. Switch to **`torque_drift_s8`** → open **Defect containment** to see the exact affected cars.
-4. Open **Plant manager** → see S14's estimate sit above its neighbours, with error bars.
-5. Open **Leadership** → the ROI and the "instrument S14 first" line.
+2. Watch the **Live constraint** panel: as the shift plays, the recursive filter shifts the constraint onto S14's segment within minutes of the slip — reacting live, not in hindsight.
+3. Read the **recommendation**, click **Accept**, see the audit log.
+4. Switch to **`torque_drift_s8`** → open **Defect containment** to see the exact affected cars.
+5. Open **Plant manager** → see S14's estimate sit above its neighbours, with error bars.
+6. Open **Leadership** → the ROI and the "instrument S14 first" line.
