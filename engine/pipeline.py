@@ -62,6 +62,53 @@ def _drift_window(obs, station_id):
     return wtimes[min(onset, len(wtimes) - 1)]
 
 
+def _recommendation(res, rec, defect, fc) -> dict | None:
+    """Pick the single most useful next action for the situation.
+
+    Different problems need different actions — a labor move fixes a slow station, but not a
+    quality drift or a demand surge. We return the driver-appropriate one:
+
+    1. **Labor reallocation** — when moving an operator to the constraint actually recovers
+       units (``prescribe.recommend``). This is the takt-slip case.
+    2. **Quality containment** — when an SPC drift is detected: recalibrate the tool and
+       quarantine the vehicles built in the drift window, before they ship.
+    3. **Demand pacing** — when arrivals outrun the line (a surge): a labor move can't help;
+       throttle release / add a front buffer.
+    4. Otherwise the line is genuinely balanced → no action.
+    """
+    # 1 · labor reallocation (throughput bottleneck a move can fix)
+    if rec is not None:
+        return {"driver": rec.driver, "action": rec.action, "confidence": rec.confidence,
+                "metric": "units recovered",
+                "recovered": {"mean": rec.expected_units_recovered.mean,
+                              "lo": rec.expected_units_recovered.lo,
+                              "hi": rec.expected_units_recovered.hi}}
+
+    # 2 · quality containment (a drift was detected)
+    if defect is not None:
+        name = res.line.stations[defect["station_id"]].name
+        still = defect["still_on_line"]
+        return {
+            "driver": f"Quality drift detected at {name} (SPC/CUSUM signal)",
+            "action": f"Recalibrate the tool at {name} and quarantine the "
+                      f"{defect['affected_count']} vehicles built in the drift window",
+            "confidence": 0.9, "metric": "vehicles still containable on-line",
+            "recovered": {"mean": still, "lo": still, "hi": defect["affected_count"]}}
+
+    # 3 · demand pacing (an arrival surge outruns the line)
+    surge = next((e for e in res.scenario.events if e.type == "surge"), None)
+    if surge is not None:
+        factor = surge.params.get("factor", 1.0)
+        return {
+            "driver": f"Arrival surge (~{factor:g}× takt) — demand exceeds line capacity",
+            "action": "Throttle vehicle release or open a parallel front buffer; "
+                      "a labor move can't absorb a demand surge",
+            "confidence": 0.8, "metric": None, "recovered": None}
+
+    # 4 · genuinely balanced
+    return None
+
+
 @lru_cache(maxsize=8)
 def analyze(scenario_name: str) -> dict:
     res = GroundTruthSim(scenario=load_scenario(scenario_name)).run()
@@ -99,6 +146,8 @@ def analyze(scenario_name: str) -> dict:
             "sample_vins": tr.affected_vins[:12],
         }
 
+    recommendation = _recommendation(res, rec, defect, fc)
+
     return {
         "scenario": {"name": res.scenario.name, "description": res.scenario.description},
         "line": {"name": res.line.name, "takt_s": res.line.takt_s,
@@ -114,11 +163,7 @@ def analyze(scenario_name: str) -> dict:
                                  "hi": round(fc.eta_s.hi / 60)},
                      "units_lost": {"mean": fc.units_lost.mean, "lo": fc.units_lost.lo,
                                     "hi": fc.units_lost.hi}},
-        "recommendation": (None if rec is None else {
-            "driver": rec.driver, "action": rec.action, "confidence": rec.confidence,
-            "recovered": {"mean": rec.expected_units_recovered.mean,
-                          "lo": rec.expected_units_recovered.lo,
-                          "hi": rec.expected_units_recovered.hi}}),
+        "recommendation": recommendation,
         "defect": defect,
         "throughput": res.throughput,
     }
