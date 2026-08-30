@@ -10,8 +10,9 @@ asserted here — follow the links for the full derivation, sensitivity, and sta
 ## 1. Problem framing
 
 Modern assembly lines are unevenly instrumented: robot cells and powered tools report state,
-but manual stations — often the true constraint — are dark (`docs/ASSUMPTIONS.md`, ~35% of a
-representative 40-station line). Existing tools compound this:
+but manual stations — often the true constraint — are dark (`docs/ASSUMPTIONS.md`: ~25% of the
+prototype's 40-station line — 10 stations — and up to ~35% on a representative industry line).
+Existing tools compound this:
 
 - **MES/SCADA dashboards** show only what's wired, and only *after* the stop — a rear-view
   mirror, not a forecast (`docs/MARKET_LANDSCAPE.md` §1).
@@ -46,7 +47,7 @@ self-check:
    drift window, before end-of-line audit (`PLAN.md` §2.6).
 5. **Trust, built in** — every forecast is backtested against replayed outcomes (calibration,
    false-alarm rate, CRPS vs. a persistence baseline — `docs/VALIDATION.md`), and a
-   value-of-information ranking says which 3 dark stations to instrument first, not "all 14"
+   value-of-information ranking says which 3 dark stations to instrument first, not all of them
    (`PLAN.md` §2.7).
 
 It is **retrofit-free and read-only**: no PLC writes, no new hardware to prove the mechanism,

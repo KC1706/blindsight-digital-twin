@@ -26,3 +26,7 @@ data/generated/
 # deck fallback screen recordings (large binaries)
 deck/assets/fallback-*.mp4
 *.mov
+
+# generated submission artifacts (regenerate via scripts/)
+submission/*.pdf
+submission/*.pptx
