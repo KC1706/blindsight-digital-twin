@@ -44,7 +44,19 @@ class LineConfig(BaseModel):
     takt_s: float = 55.0
     arrival_interval_s: float = 52.0  # source offers a new vehicle this often
     variants: list[str] = Field(default_factory=lambda: ["A", "B", "C"])
+    # mixed-model work content (issue #28). ``variant_content`` is a per-variant multiplier
+    # on every station; ``variant_ops`` adds variant-specific extra work at specific stations
+    # (e.g. a sunroof fitted only on variant B at S19). Both empty => single-model line,
+    # byte-identical to before.
+    variant_content: dict[str, float] = Field(default_factory=dict)
+    variant_ops: dict[str, dict[int, float]] = Field(default_factory=dict)
     stations: list[StationConfig]
+
+    def variant_mult(self, variant: str) -> float:
+        return float(self.variant_content.get(variant, 1.0))
+
+    def variant_extra_s(self, variant: str, station_id: int) -> float:
+        return float(self.variant_ops.get(variant, {}).get(station_id, 0.0))
 
     def checkpoints(self) -> list[int]:
         return [s.id for s in self.stations if s.checkpoint]
@@ -106,6 +118,18 @@ class CycleTimeEstimate(BaseModel):
     station_id: int
     instrumented: bool
     estimate: Band     # estimated effective cycle time (s), with error bars
+
+
+class VariantCycleEstimate(BaseModel):
+    """Per-variant service-time estimate for one station (issue #28, mixed-model).
+
+    ``pooled`` is the variant-mix-weighted station cycle time (what the rest of the
+    pipeline consumes); ``per_variant`` is the identifiable-per-variant detail.
+    """
+    station_id: int
+    instrumented: bool
+    pooled: Band
+    per_variant: dict[str, Band]
 
 
 class ForecastResult(BaseModel):

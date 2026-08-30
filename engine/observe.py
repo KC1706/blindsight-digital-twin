@@ -28,6 +28,7 @@ class Observation:
     state_frac: dict[int, dict[str, float]]            # instrumented only: working/blocked/starved
     scans: list[tuple[int, int, float]]                # (vin, checkpoint_id, t)
     vehicle_scans: dict[int, dict[int, float]] = field(default_factory=dict)  # vin -> {cp: t}
+    vehicle_variant: dict[int, str] = field(default_factory=dict)             # vin -> variant
 
     def segments(self) -> list[tuple[int, int]]:
         cps = self.line.checkpoints()
@@ -58,6 +59,9 @@ def extract_observation(res: SimResult, sensor_noise: float = 0.03,
     vehicle_scans: dict[int, dict[int, float]] = {}
     for vin, cp, t in res.scans:
         vehicle_scans.setdefault(vin, {})[cp] = t
+    # the variant is on the build sheet — known at each scan, so it is observable.
+    vehicle_variant = {v.vin: v.variant for v in res.vehicles}
 
     return Observation(line=line, measured_cycle_s=measured, state_frac=state_frac,
-                       scans=list(res.scans), vehicle_scans=vehicle_scans)
+                       scans=list(res.scans), vehicle_scans=vehicle_scans,
+                       vehicle_variant=vehicle_variant)

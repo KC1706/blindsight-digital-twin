@@ -148,6 +148,16 @@
       <div class="footnote">Bars show the estimated cycle time; the shaded band is the 80% uncertainty
         interval. Dark (manual) stations are reconstructed from flow + scans, never measured directly.</div>
     </div>
+    <div class="card" style="margin-top:16px" id="variant-card">
+      <h3>Mixed-model work content — per-variant service time (no sensor needed)</h3>
+      <div id="variant-summary" class="sub"></div>
+      <table><thead><tr><th>Station</th><th>Sensor</th><th>Per-variant cycle time (s)</th></tr></thead>
+        <tbody id="variant-body"></tbody></table>
+      <div class="footnote">Different variants carry different work content (e.g. a sunroof on
+        one trim). Blindsight recovers each variant's service time per station from travel-time
+        tomography — and localizes a variant-specific operation to the exact dark station.
+        <span id="variant-mape"></span></div>
+    </div>
   </section>
   <!-- EXEC -->
   <section class="view" id="exec">
@@ -285,6 +295,37 @@ function renderPlant(){
           background:${s.is_bottleneck?'var(--starve)':'var(--accent)'}"></div>
       </div><span class="sub">${s.cycle.mean}s [${s.cycle.lo}–${s.cycle.hi}]</span></td>
       <td>${(s.p_binding*100).toFixed(0)}%</td>`;
+    body.appendChild(tr);
+  });
+  renderVariants();
+}
+
+async function renderVariants(){
+  const card=$('#variant-card'); if(!card) return;
+  let d;
+  try{ d=await j('/api/variants'); }catch(e){ card.style.display='none'; return; }
+  card.style.display='';
+  const vs=d.variants, palette=['var(--accent)','var(--starve)','var(--work)','var(--block)'];
+  const legend=vs.map((v,i)=>`<span style="color:${palette[i%palette.length]}">■</span> ${v}`).join('  ');
+  const finds=(d.findings||[]).map(f=>`<b>${f.station}</b> (dark): variant <b>${f.variant}</b> adds ~${f.extra_s}s of work`).join(' · ');
+  $('#variant-summary').innerHTML=`Variants: ${legend}${finds?' &nbsp;—&nbsp; '+finds:''}`;
+  if(d.dark_per_variant_mape!=null)
+    $('#variant-mape').textContent=` Validated: dark per-variant error ${d.dark_per_variant_mape}% vs ground truth.`;
+  // show the interesting rows: op stations + a few dark stations
+  const opIds=new Set((d.findings||[]).map(f=>f.station_id));
+  const rows=d.stations.filter(s=>opIds.has(s.id)||s.dark).slice(0,10);
+  const maxc=Math.max(...d.stations.flatMap(s=>vs.map(v=>s.per_variant[v].hi)));
+  const body=$('#variant-body'); body.innerHTML='';
+  rows.forEach(s=>{
+    const tr=document.createElement('tr'); if(s.dark) tr.className='darkrow';
+    const bars=vs.map((v,i)=>{const b=s.per_variant[v];const w=x=>(x/maxc*100).toFixed(1);
+      return `<div class="barwrap" style="height:14px;margin:2px 0">
+        <div class="band" style="left:${w(b.lo)}%;width:${w(b.hi-b.lo)}%"></div>
+        <div class="bar" style="left:0;width:${w(b.mean)}%;opacity:.85;background:${palette[i%palette.length]}"></div>
+        </div>`;}).join('');
+    const nums=vs.map(v=>`${v} ${s.per_variant[v].mean}s`).join(' · ');
+    tr.innerHTML=`<td>${s.name}${opIds.has(s.id)?' ★':''}</td><td>${s.instrumented?'sensor':'DARK'}</td>
+      <td>${bars}<span class="sub">${nums}</span></td>`;
     body.appendChild(tr);
   });
 }
