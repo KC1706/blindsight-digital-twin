@@ -229,9 +229,12 @@ s = slide()
 card(s, 5.7, 1.6, 0.95, 0.95, border=True)
 tf = box(s, 5.7, 1.52, 0.95, 0.95, anchor=MSO_ANCHOR.MIDDLE)
 para(tf, "B", 34, TEXT, bold=True, first=True, align=PP_ALIGN.CENTER)
-tf = box(s, 1, 3.0, 11.33, 2.5, anchor=MSO_ANCHOR.TOP)
-para(tf, "No retrofit. No new sensors.\nJust the line, finally telling you what it knows.", 26, TEXT, bold=True, first=True, align=PP_ALIGN.CENTER)
-para(tf, "Team DarkShield · Blindsight · the line is the sensor", 14, DIM, align=PP_ALIGN.CENTER)
+tf = box(s, 1, 2.9, 11.33, 3.2, anchor=MSO_ANCHOR.TOP)
+para(tf, "No retrofit. No new sensors.\nJust the line, finally telling you what it knows.", 26, TEXT, bold=True, first=True, align=PP_ALIGN.CENTER, space=14)
+para(tf, "The ask: one line, one shift-pattern, read-only. We deploy on your existing scan + PLC "
+        "feed, backtest your last month, and prove units recovered in the first pilot — no new "
+        "hardware, no line downtime, exit any time.", 14, TEXT, align=PP_ALIGN.CENTER, space=14)
+para(tf, "Team DarkShield · Blindsight · the line is the sensor", 13, DIM, align=PP_ALIGN.CENTER)
 
 out = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("submission/Blindsight_Business_Proposal.pptx")
 out.parent.mkdir(parents=True, exist_ok=True)
