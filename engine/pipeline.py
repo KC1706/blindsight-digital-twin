@@ -15,6 +15,7 @@ from .defect_trace import trace_defects
 from .forecast import forecast, p_binding_by_station
 from .ground_truth_sim import GroundTruthSim
 from .observe import extract_observation
+from .online_filter import run_live
 from .prescribe import recommend
 from .root_cause import cusum_change_point
 from .scenarios import load_scenario
@@ -115,6 +116,32 @@ def analyze(scenario_name: str) -> dict:
                           "hi": rec.expected_units_recovered.hi}}),
         "defect": defect,
         "throughput": res.throughput,
+    }
+
+
+@lru_cache(maxsize=8)
+def live_state(scenario_name: str, n_frames: int = 80) -> dict:
+    """Recursive live-state posterior over the shift (issue #29).
+
+    Precomputed and cached so the API/dashboard never runs a stateful filter inside a
+    request/socket loop. Returns per-segment posterior frames (aligned to ``live_frames``)
+    plus the segment→station map the floor view needs to name the live constraint.
+    """
+    res = GroundTruthSim(scenario=load_scenario(scenario_name)).run()
+    obs = extract_observation(res)
+    frames = run_live(obs, res.duration_s, n_frames=n_frames)
+    segs = list(zip(res.line.checkpoints(), res.line.checkpoints()[1:]))
+    seg_labels = {f"{a}-{b}": [res.line.stations[j].name for j in range(a, b)]
+                  for a, b in segs}
+    dark = set(res.line.dark_stations())
+    seg_dark = {f"{a}-{b}": [res.line.stations[j].name for j in range(a, b) if j in dark]
+                for a, b in segs}
+    return {
+        "scenario": {"name": res.scenario.name, "description": res.scenario.description},
+        "segments": [{"a": a, "b": b, "label": f"S{a}–S{b}"} for a, b in segs],
+        "segment_stations": seg_labels,
+        "segment_dark": seg_dark,
+        "frames": frames,
     }
 
 
